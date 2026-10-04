@@ -1,0 +1,15 @@
+* text=auto
+
+# Windows tooling: keep CRLF in the working tree
+*.ahk text eol=crlf
+*.ini text eol=crlf
+*.ps1 text eol=crlf
+
+*.md  text eol=lf
+*.yml text eol=lf
+*.svg text eol=lf
+
+*.ico binary
+*.png binary
+*.gif binary
+*.exe binary

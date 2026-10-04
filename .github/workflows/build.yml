@@ -1,0 +1,97 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write   # publish releases on tags
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download AutoHotkey v2 and Ahk2Exe
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tools = "$env:RUNNER_TEMP\tools"
+          New-Item -ItemType Directory -Force $tools | Out-Null
+          Invoke-WebRequest https://www.autohotkey.com/download/ahk-v2.zip -OutFile "$tools\ahk-v2.zip"
+          Expand-Archive "$tools\ahk-v2.zip" "$tools\ahk" -Force
+          gh release download -R AutoHotkey/Ahk2Exe -p "Ahk2Exe*.zip" -D $tools
+          Expand-Archive (Get-Item "$tools\Ahk2Exe*.zip").FullName "$tools\ahk2exe" -Force
+          "AHK=$tools\ahk\AutoHotkey64.exe" >> $env:GITHUB_ENV
+          "AHK2EXE=$tools\ahk2exe\Ahk2Exe.exe" >> $env:GITHUB_ENV
+          (Get-Item "$tools\ahk\AutoHotkey64.exe").VersionInfo.ProductVersion
+
+      - name: Check syntax
+        run: |
+          $p = Start-Process $env:AHK -ArgumentList '/ErrorStdOut', '/Validate', 'src\Win11KeyRemapper.ahk' `
+                 -Wait -PassThru -NoNewWindow -RedirectStandardError validate.txt
+          Get-Content validate.txt
+          if ($p.ExitCode -ne 0) { exit 1 }
+
+      - name: Run tests
+        run: ./tests/run-tests.ps1 -Ahk $env:AHK
+
+      - name: Compile
+        run: |
+          New-Item -ItemType Directory -Force dist | Out-Null
+          $p = Start-Process $env:AHK2EXE -Wait -PassThru -NoNewWindow -ArgumentList `
+                 '/in', "`"$PWD\src\Win11KeyRemapper.ahk`"", '/out', "`"$PWD\dist\Win11KeyRemapper.exe`"", `
+                 '/base', "`"$env:AHK`"", '/silent', 'verbose'
+          if ($p.ExitCode -ne 0 -or -not (Test-Path dist\Win11KeyRemapper.exe)) { exit 1 }
+          (Get-Item dist\Win11KeyRemapper.exe).VersionInfo | Format-List FileDescription, FileVersion
+
+      - name: Package
+        id: package
+        run: |
+          $version = (Select-String -Path src\Win11KeyRemapper.ahk -Pattern '^;@Ahk2Exe-SetVersion\s+(\S+)').Matches[0].Groups[1].Value
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            if ($env:GITHUB_REF_NAME -ne "v$version") {
+              Write-Error "Tag $env:GITHUB_REF_NAME doesn't match the version in the script ($version)"
+              exit 1
+            }
+            $name = "Win11KeyRemapper-v$version"
+          } else {
+            $name = "Win11KeyRemapper-v$version-dev-$($env:GITHUB_SHA.Substring(0, 7))"
+          }
+          $dir = "dist\$name"
+          New-Item -ItemType Directory -Force $dir | Out-Null
+          Copy-Item dist\Win11KeyRemapper.exe, README.md, LICENSE, CHANGELOG.md, settings.example.ini $dir
+          Compress-Archive "$dir\*" "dist\$name.zip" -Force
+          $sums = foreach ($f in (Get-Item dist\Win11KeyRemapper.exe, "dist\$name.zip")) {
+            "$((Get-FileHash $f -Algorithm SHA256).Hash.ToLower())  $($f.Name)"
+          }
+          $sums | Set-Content dist\SHA256SUMS.txt -Encoding ascii
+          $sums
+          "name=$name" >> $env:GITHUB_OUTPUT
+
+      - name: Upload build
+        if: github.ref_type != 'tag'
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.package.outputs.name }}
+          path: |
+            dist/${{ steps.package.outputs.name }}.zip
+            dist/SHA256SUMS.txt
+          retention-days: 14
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        uses: softprops/action-gh-release@v3
+        with:
+          files: |
+            dist/${{ steps.package.outputs.name }}.zip
+            dist/SHA256SUMS.txt
+          generate_release_notes: true
+          fail_on_unmatched_files: true

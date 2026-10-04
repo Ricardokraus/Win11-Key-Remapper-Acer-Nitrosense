@@ -1,0 +1,16 @@
+# Build output
+dist/
+
+# User settings (generated on first run)
+settings.ini
+*.lnk
+
+# Personal reference scripts and local Claude Code context — not published
+legacy/
+CLAUDE.md
+CLAUDE.local.md
+.claude/settings.local.json
+
+# OS
+Thumbs.db
+desktop.ini

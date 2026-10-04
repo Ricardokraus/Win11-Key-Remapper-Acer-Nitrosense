@@ -1,0 +1,73 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please check the [FAQ](https://github.com/Ricardokraus/Win11-Key-Remapper#faq) first:
+        antivirus warnings, SmartScreen and the Task Manager limitation are covered there.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      description: Tray icon → About / GitHub.
+      placeholder: "0.2.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: how
+    attributes:
+      label: How do you run it?
+      options:
+        - Compiled exe (Win11KeyRemapper.exe)
+        - From source (.ahk with AutoHotkey v2)
+    validations:
+      required: true
+
+  - type: input
+    id: laptop
+    attributes:
+      label: Laptop or keyboard model
+      placeholder: Acer Nitro V 16S AI (ANV16S-41)
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: Press Win+R, type `winver` and copy the version and build.
+      placeholder: Windows 11 24H2 (build 26100.xxxx)
+    validations:
+      required: true
+
+  - type: textarea
+    id: codes
+    attributes:
+      label: Codes shown by the detector
+      description: Tray → Settings… → Detect key… → press the key. Copy the text of the field for each key involved.
+      placeholder: NitroSense key · VK FF SC 175
+
+  - type: textarea
+    id: settings
+    attributes:
+      label: settings.ini
+      description: Tray → Open settings folder. Paste the content of settings.ini.
+      render: ini
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else?
+      description: Screenshots, other keyboard tools running (PowerToys, other AutoHotkey scripts…), antivirus, etc.

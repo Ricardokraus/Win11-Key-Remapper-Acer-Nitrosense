@@ -1,0 +1,63 @@
+name: Works on my laptop
+description: Tell us whether it works on your model, so the tested models list can grow
+title: "[Model] "
+labels: [compatibility]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks! Reports that it does **not** work are just as useful.
+        The key codes come from the app itself: tray icon → Settings… → **Detect key…** → press the key.
+
+  - type: input
+    id: model
+    attributes:
+      label: Laptop model
+      description: Full model name and number (on the sticker under the laptop).
+      placeholder: Acer Nitro V 16S AI (ANV16S-41)
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows version
+      description: Press Win+R, type `winver` and copy the version and build.
+      placeholder: Windows 11 24H2 (build 26100.xxxx)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: result
+    attributes:
+      label: Does it work?
+      options:
+        - "Yes, everything works"
+        - "Partly (explain below)"
+        - "No"
+    validations:
+      required: true
+
+  - type: textarea
+    id: codes
+    attributes:
+      label: Codes shown by the detector
+      description: One line per special key you tried (NitroSense key, Fn+Win / Win Lock, other vendor keys).
+      placeholder: |
+        NitroSense key: NitroSense key · VK FF SC 175
+        Fn+Win (Win Lock on): Win Lock on · VK FF SC 159
+        Fn+Win (Win Lock off): Win Lock off · VK FF SC 162
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: App version
+      placeholder: "0.2.0"
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: What you remapped it to, anything that behaved oddly, NitroSense version, etc.
