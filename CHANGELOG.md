@@ -18,14 +18,21 @@ First public release.
 - Optional shortcut to open NitroSense (default: Right Ctrl + NitroSense key),
   with auto-detection of the desktop and Microsoft Store versions, or any app
   you choose.
-- Settings window with a built-in key detector: click "Change…" and press a key
-  or a shortcut. Keys are shown as keycaps with their codes. Changes apply on
-  Save, no restart needed.
+- Settings window in the Windows 11 style: a sidebar with General, Keys,
+  Notifications, Updates, Advanced and About; setting cards with a description
+  and, where useful, an ⓘ tooltip; a ⋯ menu (open settings folder, report a bug,
+  GitHub page, restart, exit). Every change is applied and saved at once; if
+  something is missing, the row says what.
+- Built-in key detector: click "Change…" and press a key or a shortcut. Keys are
+  shown as keycaps, with their codes below the row title.
 - Light and dark mode for the settings window and the tray menu: follows
   Windows, or choose one (`Theme` setting). Switches live if Windows changes.
-- Notifications: choose the position (top or bottom; center, left or right) and
-  the animation (slide, fade or none), try them with "Show a test
-  notification", or turn the startup/unlock ones off.
+- Sharp on every monitor: the settings window and the tray menu follow each
+  monitor's scale (Per-Monitor DPI v2), also when moved between monitors.
+- Notifications: when (always, only when the app starts, or never), where (top or
+  bottom; center, left or right) and how (slide, fade or none), with a preview.
+- About section with the FAQ and links to report bugs, suggest features, report
+  a laptop model or ask a question.
 - Tray menu: Settings, Pause remapping, Start with Windows, Check for updates,
   Open settings folder, About, Restart, Exit.
 - Option to hide the tray icon. Opening the app again shows the settings of the

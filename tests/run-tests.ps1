@@ -37,7 +37,6 @@ $code = [IO.File]::ReadAllText((Join-Path $root 'src\Win11KeyRemapper.ahk'))
 $patches = [ordered]@{
     '^Main\(\)\s*$'                                 = '; (test) Main() removed'
     'g\.Show\(showOpts\)'                           = 'g.Show(showOpts " Hide")'
-    'g\.Show\(\)'                                   = 'g.Show("Hide")'
     'SetTimer\(RunQueue, -1\)'                      = '; (test) RunQueue is not scheduled'
     '\bGlassToast\('                                = 'TestToast('
     '\bMsgBox\('                                    = 'TestToast('
@@ -56,8 +55,16 @@ $script = Join-Path $work 'src\test.ahk'
 
 $outFile = Join-Path $work 'stdout.txt'
 $errFile = Join-Path $work 'stderr.txt'
-$p = Start-Process -FilePath $Ahk -ArgumentList '/ErrorStdOut', "`"$script`"" -Wait -PassThru -NoNewWindow `
+$p = Start-Process -FilePath $Ahk -ArgumentList '/ErrorStdOut', "`"$script`"" -PassThru -NoNewWindow `
                    -RedirectStandardOutput $outFile -RedirectStandardError $errFile
+$null = $p.Handle                       # needed later to read ExitCode
+if (-not $p.WaitForExit(90000)) {
+    Stop-Process -Id $p.Id -Force
+    Get-Content $outFile -Encoding UTF8
+    Write-Host 'Tests timed out (90 s)'
+    exit 1
+}
+$p.WaitForExit()                        # without a timeout, so ExitCode gets filled in
 Get-Content $outFile -Encoding UTF8
 Get-Content $errFile -Encoding UTF8
 if ($p.ExitCode -ne 0) {

@@ -5,6 +5,8 @@
 ; it. Fake key events are passed straight to KeyboardProc.
 ; ============================================================================
 Critical                                ; no timer may run in the middle of a test
+; A runtime error must fail the run, not open a dialog and wait
+OnError((e, *) => (FileAppend("ERROR: " e.Message " (line " e.Line ")`n" e.Stack "`n", "*", "UTF-8"), ExitApp(2)))
 TOASTS := [], SENT := [], RAN := []
 TestToast(title, sub, kind := "ok", holdMs := 5000) {
     TOASTS.Push(title " | " sub)
@@ -62,7 +64,7 @@ Eq(c.targetMods.Length, 0, "default TargetMods empty")
 Eq(JoinMods(c.launchMods), "RCtrl", "default LaunchMods")
 Eq(c.launchVK, 0xFF, "default LaunchVK")
 Eq(c.launchPath, "auto", "default LaunchPath")
-Eq(c.showToast, 1, "default ShowToast")
+Eq(c.toastWhen, "Always", "default ToastWhen")
 f := FileOpen(SETTINGS_PATH, "r"), enc := f.Encoding, f.Close()
 Eq(enc, "UTF-16", "ini encoding")
 txt := FileRead(SETTINGS_PATH, "UTF-16")
@@ -75,7 +77,7 @@ IniDelete(SETTINGS_PATH, "Launcher", "LaunchMods")
 Eq(JoinMods(LoadSettings(SETTINGS_PATH).launchMods), "RCtrl", "missing LaunchMods -> default")
 
 p2 := tmp "\roadmap.ini"
-FileAppend("[Remap]`r`nSourceVK=0x41          `; key to remap`r`nSourceSC=0x1E`r`nMatchSC=0`r`nMode=key  `; lower case`r`nTargetMods=lctrl, Shift`r`nTargetVK=0x43`r`nTargetSC=junk`r`n[Launcher]`r`nLaunchEnabled=0`r`nLaunchPath=`r`n[General]`r`nShowToast=no`r`nTheme=dark`r`nToastPosition=bottomright`r`nToastAnimation=Spin`r`nTrayIcon=0`r`n", p2)
+FileAppend("[Remap]`r`nSourceVK=0x41          `; key to remap`r`nSourceSC=0x1E`r`nMatchSC=0`r`nMode=key  `; lower case`r`nTargetMods=lctrl, Shift`r`nTargetVK=0x43`r`nTargetSC=junk`r`n[Launcher]`r`nLaunchEnabled=0`r`nLaunchPath=`r`n[General]`r`nToastWhen=never`r`nTheme=dark`r`nToastPosition=bottomright`r`nToastAnimation=Spin`r`nTrayIcon=0`r`n", p2)
 c := LoadSettings(p2)
 Eq(c.sourceVK, 0x41, "inline comment stripped")
 Eq(c.matchSC, 0, "MatchSC=0")
@@ -85,14 +87,14 @@ Eq(c.targetSC, 0, "invalid hex -> default")
 Eq(c.launchEnabled, 0, "LaunchEnabled=0")
 Eq(c.launchPath, "auto", "empty LaunchPath -> auto")
 Eq(c.launchVK, 0xFF, "missing LaunchVK -> default")
-Eq(c.showToast, 0, "ShowToast=no")
+Eq(c.toastWhen, "Never", "ToastWhen=never")
 Eq(c.theme, "Dark", "Theme normalized")
 Eq(c.toastPosition " " c.toastAnim " " c.trayIcon " " c.checkUpdates, "BottomRight Slide 0 1", "toast/tray/update settings")
 Eq(LoadSettings(SETTINGS_PATH).theme, "System", "default Theme")
 
 c := LoadSettings(A_ScriptDir "\..\settings.example.ini"), d := DefaultSettings()
 for key in ["sourceVK", "sourceSC", "matchSC", "mode", "targetVK", "targetSC", "launchEnabled"
-          , "launchVK", "launchSC", "launchAnySide", "launchPath", "showToast", "toastPosition"
+          , "launchVK", "launchSC", "launchAnySide", "launchPath", "toastWhen", "toastPosition"
           , "toastAnim", "trayIcon", "checkUpdates", "theme"]
     Eq(c.%key% "", d.%key% "", "settings.example.ini matches defaults: " key)
 Eq(JoinMods(c.targetMods) "|" JoinMods(c.launchMods), JoinMods(d.targetMods) "|" JoinMods(d.launchMods), "settings.example.ini mods")
@@ -281,38 +283,45 @@ Eq(Ev(0xA0, 0x2A, true), 1, "cancel: held modifier key-up eaten")
 Check(Ev(0xA0, 0x2A) != 1, "cancel: next press works")
 Ev(0xA0, 0x2A, true)
 
-; ---- 7. Settings window (hidden) ----
+; ---- 7. Settings window (hidden; changes apply at once) ----
 Reset(DefaultSettings())
+WriteSettings(SETTINGS_PATH, CFG)
 NS.checked := true, NS.target := ""
 ShowSettings()
-Check(UI.gui, "gui created")
+Check(UI.gui && UI.page = "keys" && UI.title.Value = "Keys", "gui: opens on Keys")
 Eq(UI.keyText["source"], "NitroSense key", "gui: source keys")
 Eq(UI.keyText["launch"], "Right Ctrl + NitroSense key", "gui: launch keys")
+Eq(UI.srcDesc.Value, "Code: VK FF · SC 175", "gui: key code shown")
 Eq(UI.mode.Value, 1, "gui: mode")
-Check(UI.actionInfo.Visible && InStr(UI.actionInfo.Value, "Num Lock on or off"), "gui: action explained")
-Check(!UI.targetBtn.Visible && !UI.targetKeys.Visible, "gui: no target row for toggles")
-Check(InStr(UI.appStatus.Value, "Not found"), "gui: app not found")
-Check(InStr(UI.status.Value, "Active · NitroSense key → Num Lock"), "gui: status line")
-Eq(UI.tgState["launchEnabled"] UI.tgState["launchAnySide"] UI.tgState["showToast"] UI.tgState["matchSC"]
- . UI.tgState["trayIcon"] UI.tgState["checkUpdates"] UI.tgState["autostart"], "1011110", "gui: switches")
-Eq(UI.toastPos.Value " " UI.toastAnim.Value " " UI.theme.Value, "1 1 1", "gui: notification and theme lists")
+Check(InStr(UI.actionInfo.Value, "Num Lock on or off"), "gui: action explained")
+Check(!UI.targetBtn.Enabled && UI.targetDesc.Value = "Not used by this action", "gui: Sends row off for toggles")
+Check(InStr(UI.appStatus.Value, "not found"), "gui: app not found")
+Eq(UI.status.Value, "Active", "gui: status")
+Eq(UI.tgState["launchEnabled"] UI.tgState["distinguish"] UI.tgState["matchSC"] UI.tgState["trayIcon"]
+ . UI.tgState["checkUpdates"] UI.tgState["remapping"] UI.tgState["autostart"], "1111110", "gui: switches")
+Eq(UI.toastWhen.Value " " UI.toastPos.Value " " UI.toastAnim.Value " " UI.theme.Value, "1 1 1 1", "gui: lists")
 Eq(UI.updBtn.Text, "Check now", "gui: update button")
+ShowPage("about")
+Check(UI.title.Value = "About" && !UI.srcBtn.Visible, "gui: switching section hides the others")
+ShowPage("keys")
+Check(UI.srcBtn.Visible, "gui: back to Keys")
+
 DRAFT.toastPosition := "BottomRight", DRAFT.toastAnim := "Fade"
 PreviewToast()
 Check(InStr(TOASTS[TOASTS.Length], "Bottom right · Fade in") && GTCFG.position = "TopCenter", "gui: test notification uses the draft, then restores")
-RefreshSettings()
-Eq(UI.toastPos.Value " " UI.toastAnim.Value, "5 2", "gui: lists follow the draft")
+CommitDraft()
+Eq(UI.toastPos.Value " " UI.toastAnim.Value " " CFG.toastPosition, "5 2 BottomRight", "gui: notification style applied")
 UPD.state := "available", UPD.latest := "v9.9.9"
 UpdateUpdatesRow()
 Check(UI.updBtn.Text = "Download v9.9.9" && InStr(UI.updText.Value, "new version"), "gui: update available (from source: download)")
 UPD.state := "", UPD.latest := ""
 UpdateUpdatesRow()
+
 CaptureToggle("source")
 Eq(UI.srcBtn.Text, "Cancel", "gui: listening button")
 Eq(UI.keyText["source"], "listening", "gui: listening keys")
 CaptureToggle("source")
-Check(!CAP.active, "gui: click again cancels")
-Eq(UI.srcBtn.Text, "Change…", "gui: label restored")
+Check(!CAP.active && UI.srcBtn.Text = "Change…", "gui: click again cancels")
 CaptureToggle("source")
 CaptureToggle("target")
 Eq(CAP.target, "target", "gui: other capture replaces")
@@ -321,60 +330,80 @@ CaptureToggle("source")
 Ev(0x41, 0x1E)
 CaptureDone()
 Ev(0x41, 0x1E, true)
-Eq(DRAFT.sourceVK, 0x41, "gui: detected source stored in draft")
-Eq(UI.keyText["source"], "A", "gui: source keys updated")
-Eq(CFG.sourceVK, 0xFF, "gui: CFG untouched until Save")
+Eq(UI.keyText["source"] " " CFG.sourceVK, "A 65", "gui: detected key applied at once")
+Eq(LoadSettings(SETTINGS_PATH).sourceVK, 0x41, "gui: and saved")
+
 UI.mode.Value := 4
 OnModeChange(UI.mode)
-Check(UI.targetBtn.Visible && !UI.actionInfo.Visible, "gui: target row for Key")
-Eq(UI.keyText["target"], "Not set", "gui: target not set")
-Check(InStr(ValidateSettings(DRAFT), "next to Sends"), "validate: Key needs target")
+Eq(DRAFT.mode " " CFG.mode, "Key NumLock", "gui: incomplete Key mode isn't applied")
+Check(UI.targetBtn.Enabled && InStr(UI.targetDesc.Value, "Change"), "gui: Sends row asks for the key")
+CaptureToggle("target")
+Ev(0x43, 0x2E)
+CaptureDone()
+Ev(0x43, 0x2E, true)
+Eq(CFG.mode " " CFG.targetVK, "Key 67", "gui: applied once complete")
+
+d := DefaultSettings(), d.mode := "Key"
+Check(InStr(ValidateSettings(d, &where), "next to Sends") && where = "target", "validate: Key needs target")
 d := DefaultSettings(), d.launchMods := []
-Check(InStr(ValidateSettings(d), "never run"), "validate: launcher = source without modifier")
+Check(InStr(ValidateSettings(d, &where), "never run") && where = "launch", "validate: launcher = source without modifier")
 d := DefaultSettings(), d.launchVK := 0
 Check(InStr(ValidateSettings(d), "shortcut that opens"), "validate: launcher needs shortcut")
 d := DefaultSettings(), d.launchPath := "C:\nope\nope.exe"
-Check(InStr(ValidateSettings(d), "not found"), "validate: missing app")
+Eq(ValidateSettings(d), "", "validate: a missing app only warns")
 Eq(ValidateSettings(DefaultSettings()), "", "validate: defaults ok")
-DRAFT.launchPath := "C:\nope\nope.exe", UpdateApp()
-Check(UI.appName.Value = "nope.exe" && InStr(UI.appStatus.Value, "File not found"), "gui: custom app missing")
-AutoApp()
-Eq(DRAFT.launchPath, "auto", "gui: Auto = auto-detect")
-FlipSwitch("launchAnySide")
-Eq(UI.keyText["launch"], "Ctrl + NitroSense key", "gui: any side shown")
-ResetDraft()
-Eq(DRAFT.sourceVK " " DRAFT.launchAnySide, 0xFF " 0", "gui: reset defaults")
-DRAFT.mode := "CapsLock"
-FlipSwitch("launchEnabled")
-Check(!DRAFT.launchEnabled && !UI.launchBtn.Enabled && !UI.browse.Enabled && !UI.tg["launchAnySide"].Enabled, "gui: launcher controls disabled")
-FlipSwitch("launchAnySide")
-Eq(DRAFT.launchAnySide, 0, "gui: disabled switch can't flip")
-FlipSwitch("autostart"), FlipSwitch("autostart")
-Eq(UI.autostartOn, 0, "gui: autostart switch")
-DRAFT.theme := UI.themeName = "dark" ? "Light" : "Dark"
-RebuildSettings()
-Check(UI.gui && UI.themeName = StrLower(DRAFT.theme) && DRAFT.mode = "CapsLock", "gui: theme rebuild keeps the draft")
-SaveFromGui()
-Check(!UI.gui, "gui: closed after save")
-Eq(CFG.mode, "CapsLock", "save: applied")
-Eq(RT.launchOn, false, "save: launcher off applied")
-c := LoadSettings(SETTINGS_PATH)
-Eq(c.mode " " c.theme, "CapsLock " CFG.theme, "save: written to ini")
-Check(TOASTS.Length && InStr(TOASTS[TOASTS.Length], "Settings saved | NitroSense key → Caps Lock"), "save: toast")
-Check(!FileExist(APP.lnk), "save: autostart untouched")
-CFG.theme := "System"
 
-ShowSettings(true)
-Eq(UI.autostartOn, 1, "first run: autostart pre-checked")
-SaveFromGui()
-Check(FileExist(APP.lnk), "first run: shortcut created")
+DRAFT.launchPath := "C:\nope\nope.exe", UpdateApp()
+Check(InStr(UI.appStatus.Value, "nope.exe: file not found"), "gui: custom app missing")
+AutoApp()
+Eq(CFG.launchPath, "auto", "gui: Auto = auto-detect")
+FlipSwitch("distinguish")
+Eq(UI.keyText["launch"] " " CFG.launchAnySide, "Ctrl + NitroSense key 1", "gui: either side")
+FlipSwitch("distinguish")
+FlipSwitch("launchEnabled")
+Check(!CFG.launchEnabled && !UI.launchBtn.Enabled && !UI.browse.Enabled && !UI.tg["distinguish"].Enabled, "gui: launcher off")
+FlipSwitch("distinguish")
+Eq(CFG.launchAnySide, 0, "gui: disabled switch can't flip")
+FlipSwitch("remapping")
+Check(PAUSED && UI.status.Value = "Paused", "gui: remapping off = paused")
+FlipSwitch("remapping")
+Check(!PAUSED, "gui: remapping back on")
+FlipSwitch("trayIcon")
+Check(A_IconHidden && InStr(TOASTS[TOASTS.Length], "tray icon is hidden"), "gui: tray icon hidden, with a hint")
+FlipSwitch("trayIcon")
+Check(!A_IconHidden, "gui: tray icon back")
+UI.toastWhen.Value := 2
+DRAFT.toastWhen := TOAST_WHENS[2], CommitDraft()
+Eq(LoadSettings(SETTINGS_PATH).toastWhen, "Startup", "gui: notifications only at startup")
+
+UI.dpi := 120, UI.k := 1.25
+ApplyLayout()
+ctx := PMv2()                           ; read sizes like the window sees them (no DPI virtualization)
+UI.srcBtn.GetPos(, , &bw)
+PMv2(ctx)
+Eq(bw, 120, "gui: relaid out for a 125 % monitor")
+
+newTheme := UI.themeName = "dark" ? "Light" : "Dark"
+DRAFT.theme := newTheme
+CommitDraft()
+RebuildSettings()
+Check(UI.gui && UI.themeName = StrLower(newTheme) && CFG.theme = newTheme && UI.page = "keys", "gui: theme change rebuilds, same section")
+UI.mode.Value := 2
+OnModeChange(UI.mode)
+Eq(CFG.mode, "CapsLock", "gui: mode applied")
+
+FlipSwitch("autostart")
+Check(FileExist(APP.lnk), "gui: autostart on")
 FileGetShortcut(APP.lnk, &lnkTarget, , &lnkArgs)
 Eq(lnkTarget, A_AhkPath, "shortcut runs AutoHotkey")
 Eq(lnkArgs, '"' A_ScriptFullPath '"', "shortcut passes the script")
+CloseSettings()
+Check(!UI.gui, "gui: closed")
+CFG.theme := "System"
 
 ; ---- 8. Tray / pause ----
 BuildTray()
-Check(InStr(A_IconTip, "Windows 11 Key Remapper`nNitroSense key → Caps Lock"), "tray tooltip")
+Check(InStr(A_IconTip, "Windows 11 Key Remapper`nA → Caps Lock"), "tray tooltip")
 TogglePause()
 Check(PAUSED && InStr(A_IconTip, "(paused)"), "pause on")
 TogglePause()

@@ -11,6 +11,7 @@ src/lib/GlassToast.ahk       "liquid glass" notification (standalone library)
 tests/run-tests.ps1          builds a patched copy of the app and runs tests/tests.ahk
 tests/tests.ahk              logic tests (fake key events fed to the hook procedure)
 tools/make-icon.ps1          regenerates assets/icon.ico
+tools/build.ps1              builds dist/Win11KeyRemapper.exe locally
 assets/                      icon.ico, banner.svg, social-preview.png, screenshot-*.png
 settings.example.ini         documented defaults (a test checks it matches the code)
 .github/workflows/build.yml  syntax check, tests, compile, zip, VirusTotal, release on tag v*
@@ -35,7 +36,10 @@ AutoHotkey64.exe src\Win11KeyRemapper.ahk
 # Regenerate the icon (add -Preview preview.png to see every size)
 powershell -ExecutionPolicy Bypass -File tools\make-icon.ps1
 
-# Compile
+# Build dist\Win11KeyRemapper.exe (downloads AutoHotkey + Ahk2Exe once into a cache)
+powershell -ExecutionPolicy Bypass -File tools\build.ps1
+
+# Or compile by hand
 Ahk2Exe.exe /in src\Win11KeyRemapper.ahk /out dist\Win11KeyRemapper.exe /base C:\path\to\AutoHotkey64.exe
 ```
 
@@ -108,27 +112,45 @@ Rules:
 
 ## The settings window
 
-- Standard Win32 controls can't draw rounded cards, keycaps or switches, so those
-  are drawn with GDI+ (reusing the toast library's helpers): the cards are one
-  bitmap painted on `WM_ERASEBKGND`; each key view and switch is a Picture
-  control whose bitmap `RefreshSettings` redraws. Bitmaps are opaque (drawn on
-  the card color), so ClearType text works and static controls need no alpha.
-- Layout is in logical pixels; Windows scales the window by DPI and the bitmaps
-  are rendered at `A_ScreenDPI / 96`. Two columns keep the window under ~540 px
-  high, so it fits 1080p screens at 150 %.
-- Edits go to `DRAFT`; *Save* validates, writes `settings.ini` and applies
-  everything without restarting.
+- **Layout**: Windows 11 Settings style. A sidebar with sections (`PAGES`), a page
+  title, and setting cards: each row has a title, an optional description (also
+  used for the current value, e.g. a key's codes, or for what's missing, in red)
+  and the control on the right. `SL` holds the layout in logical pixels.
+- **Changes apply at once** (`CommitDraft`): the window edits `DRAFT`; each change
+  is validated and, if complete, copied to `CFG`, saved and applied. If something
+  blocks it (e.g. *Press another key* without a key), the row says so and the
+  previous settings stay active. App actions live in the ⋯ menu.
+- **Drawing**: standard Win32 controls can't draw rounded cards, keycaps,
+  switches or the sidebar, so those are GDI+ bitmaps (reusing the toast
+  library's helpers): the cards of the current section are one bitmap painted on
+  `WM_ERASEBKGND`; key views, switches and sidebar entries are Picture controls.
+  Bitmaps are opaque (drawn on their background color), so ClearType works.
+  Icons come from *Segoe Fluent Icons* (Windows 11) or *Segoe MDL2 Assets*
+  (Windows 10).
+- **Per-monitor DPI**: the app is system-DPI-aware, so on a monitor with another
+  scale Windows stretched the window (blurry) and misplaced the menus. The
+  settings window is created in a **Per-Monitor v2** thread context with
+  `-DPIScale`; every control goes through `Place()`, which scales positions
+  (`Px`) and font sizes (`FontPts`: AutoHotkey sizes fonts for the main
+  monitor's DPI, so points are converted) and remembers the control. On
+  `WM_DPICHANGED` (`OnSettingsDpiChanged`) everything is moved, re-fonted and
+  redrawn for the new scale. A `WM_DPICHANGED` for the DPI the window already uses
+  (it's created on the main monitor, then shown on another) is ignored, or the
+  window would shrink. The tray menu, the ⋯ menu and the ⓘ tooltips are shown
+  with the thread temporarily in PMv2 (`PMv2()`), at physical coordinates.
+- **Reading positions**: a system-aware thread asking for the position of a PMv2
+  window gets coordinates "virtualized" for its own DPI. Always switch to PMv2
+  (`PMv2()`) before `WinGetPos`/`GetPos` on the settings window.
 - **Light/dark**: `Theme=System` reads `AppsUseLightTheme`. Dark mode uses the
   undocumented but widely used uxtheme exports (ordinals 133
   `AllowDarkModeForWindow`, 135 `SetPreferredAppMode`, 136 `FlushMenuThemes`) for
-  the tray menu and controls, `SetWindowTheme` with `DarkMode_Explorer` (buttons)
-  and `DarkMode_CFD` (drop-down lists), `WM_CTLCOLORLISTBOX` for the open lists,
-  and `DwmSetWindowAttribute` 20 (dark title bar) / 35 (caption color, Windows
-  11). When Windows switches mode (`WM_SETTINGCHANGE` "ImmersiveColorSet") the
-  window is rebuilt at the same place.
-- Switch labels are clickable; switches can't take keyboard focus (they're
-  pictures). Buttons, lists and Esc/Enter work as usual.
-
+  the menus and controls, `SetWindowTheme` with `DarkMode_Explorer` (buttons,
+  scrollbars) and `DarkMode_CFD` (drop-down lists), `WM_CTLCOLORLISTBOX` for open
+  lists, `WM_CTLCOLORBTN`/`WM_CTLCOLORSTATIC` so buttons and icons on cards get
+  the card color, and `DwmSetWindowAttribute` 20 (dark title bar) / 35 (caption
+  color, Windows 11). When the theme changes, the window is rebuilt in place.
+- Switches are pictures: clickable, but not reachable with Tab. Buttons, lists,
+  Esc and the sidebar (mouse) work as usual.
 ## One copy at a time, restart, hidden tray icon
 
 - `#SingleInstance Off`: at startup the app looks for a hidden AutoHotkey main
@@ -228,6 +250,15 @@ draft's style and restores `GTCFG` afterwards.
     ("Unexpected Else"). Use braces.
 12. **COM booleans are -1** (`VARIANT_TRUE`): don't use -1 as an error marker for
     a COM call's result.
+13. **A parameter can't share a global's name, in any case**: `SetPaused(paused)`
+    with `global PAUSED` is a load error.
+14. **Picture controls**: `*w32 *h32 file` only works when *changing* the image
+    (`.Value`); when creating it, put the size in the options. `SetFont` isn't
+    supported on pictures.
+15. **PowerShell `Start-Process -PassThru`**: read `.Handle` right away and call
+    `WaitForExit()` without a timeout at the end, or `ExitCode` stays empty.
+16. **Tests must never show a dialog**: `tests.ahk` sets `OnError` to print the
+    error and exit, and `run-tests.ps1` kills the run after 90 s.
 
 ## The glass toast
 
@@ -275,9 +306,14 @@ The tests cover the logic; this needs real keys:
 - [ ] Right Ctrl + NitroSense key opens NitroSense; Left Ctrl + key toggles.
 - [ ] *Change…* captures a single key, a combo, and a lone modifier (Right Ctrl).
 - [ ] `Mode=Key`: holding the key repeats the target; Shift+key gives Shift+target.
-- [ ] Save applies without restarting; Cancel discards.
+- [ ] Changes apply at once without restarting; incomplete ones (no key to send) show a red hint.
+- [ ] Every section of the settings window; changes apply at once; the ⓘ tooltips.
+- [ ] Move the settings window to the other monitor: it stays sharp and keeps its layout.
+- [ ] Tray menu on each monitor: opens at the icon, at the right size.
+- [ ] ⋯ menu: open folder, report a bug, GitHub, restart, exit.
 - [ ] Light, dark and *System* themes; switching Windows' mode with the window open.
-- [ ] Every notification position and animation, with *Show a test notification*.
+- [ ] Every notification position and animation, with *Show a test*; *Show notifications*:
+  Always / Only when the app starts / Never (lock and unlock to check).
 - [ ] Pause / resume and *Restart* from the tray.
 - [ ] Hide the tray icon, open the app again: the settings appear; turn it back on.
 - [ ] *Check now* (up to date / update available); *Install* on the exe.

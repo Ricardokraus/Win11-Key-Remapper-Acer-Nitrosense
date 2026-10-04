@@ -24,7 +24,7 @@ is a tiny tray app that gives that key a better job — or any other key you pic
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/screenshot-dark.png">
-    <img src="assets/screenshot-light.png" alt="The settings window: the key to remap, what it does, the NitroSense shortcut, notifications and general options" width="760">
+    <img src="assets/screenshot-light.png" alt="The settings window, Keys section: the key to remap, what it does and the shortcut that opens NitroSense" width="760">
   </picture>
 </p>
 
@@ -37,10 +37,13 @@ is a tiny tray app that gives that key a better job — or any other key you pic
 - **Optional shortcut to open NitroSense** (default: <kbd>Right Ctrl</kbd> +
   NitroSense key). It finds the app by itself, including the Microsoft Store
   version, or opens any app you choose.
-- **Clean settings window** with **light and dark mode** (follows Windows, or pick
-  one). Changes apply when you click *Save*, no restart needed.
-- **Notifications your way**: turn them off, choose where they appear (six
-  positions) and how (slide, fade or none), and try them with a test button.
+- **Settings window in the Windows 11 style**: sections in a sidebar (General,
+  Keys, Notifications, Updates, Advanced, About), **light and dark mode** (follows
+  Windows, or pick one), changes applied instantly, and sharp on every monitor,
+  whatever its scale.
+- **Notifications your way**: always (at startup, after unlocking and when the
+  screen turns on), only when the app starts, or never; choose where they appear
+  (six positions) and how (slide, fade or none), with a preview button.
 - **Tray menu** with pause, restart and *Start with Windows* — or **hide the tray
   icon** completely (open the app again to reach its settings).
 - **Stays up to date**: checks GitHub for a new version once a day and installs
@@ -49,16 +52,43 @@ is a tiny tray app that gives that key a better job — or any other key you pic
   use while idle.
 - **Free and open source** (MIT).
 
-## Quick start
+## Installation
+
+There are two ways to run it. Both do exactly the same; pick one.
+
+| | **A. The exe** (recommended) | **B. With AutoHotkey** |
+|---|---|---|
+| You need | Nothing | [AutoHotkey v2](https://www.autohotkey.com/) installed |
+| You run | `Win11KeyRemapper.exe` | `src\Win11KeyRemapper.ahk` |
+| Updates | Checks once a day, installs in one click | You download the new source yourself |
+| Good to know | Antivirus/SmartScreen may warn the first time ([why?](#faq)) | You run the readable source, nothing compiled |
+
+### A. The exe (no install)
 
 1. Download `Win11KeyRemapper-vX.Y.Z.zip` from the
    [latest release](https://github.com/Ricardokraus/Win11-Key-Remapper/releases/latest).
-2. Extract it to a folder you keep (for example `Documents\Win11KeyRemapper`) and run
-   **`Win11KeyRemapper.exe`**. If Windows SmartScreen appears, click
-   *More info* → *Run anyway* ([why?](#faq)).
-3. The settings window opens. Pick what the NitroSense key should do, leave
-   *Start with Windows* on and click **Save**. That's it — the app lives in the
-   tray. Double-click its icon (or open the app again) to change the settings.
+2. Extract it to a folder you'll keep, for example
+   `%LOCALAPPDATA%\Programs\Win11KeyRemapper` or `Documents\Win11KeyRemapper`
+   (not *Downloads*: *Start with Windows* points to wherever the exe is).
+3. Run **`Win11KeyRemapper.exe`**. If SmartScreen appears, click *More info* →
+   *Run anyway*.
+4. The settings window opens on *Keys*. Pick what the NitroSense key should do —
+   changes apply at once. *Start with Windows* is already on. Close the window:
+   the app lives in the tray. Double-click its icon, or open the app again, to come
+   back.
+
+### B. With AutoHotkey installed
+
+1. Install [AutoHotkey v2](https://www.autohotkey.com/).
+2. Download the source: the green **Code** button → *Download ZIP* (or the
+   *Source code* zip of a release, or `git clone`), and extract it to a folder
+   you'll keep.
+3. Double-click **`src\Win11KeyRemapper.ahk`**. Everything else is the same as
+   with the exe; *Start with Windows* starts AutoHotkey with the script, and the
+   settings are saved in `src\settings.ini`.
+
+Don't run both at the same time: if one is already running, opening the other just
+shows the running copy's settings. To switch, use *⋯ → Exit app* first.
 
 <!-- Demo GIF: record with ScreenToGif, save as assets/demo.gif and uncomment.
 <p align="center"><img src="assets/demo.gif" alt="Detecting the NitroSense key and remapping it to Num Lock" width="640"></p>
@@ -77,6 +107,8 @@ Everything goes through GitHub **Issues**. You need a free GitHub account.
    - 💻 **Works on my laptop** — tell us whether it works on your model (even if it doesn't!).
    - ❓ **Question** — anything else.
 3. Fill in the form and click **Create**. GitHub emails you when someone answers.
+
+The same links are in the app: settings window → *About* → *Help and feedback*.
 
 Found a security problem? Please report it privately instead — see
 [SECURITY.md](SECURITY.md). And if the app helps you, a ⭐ helps others find it.
@@ -100,14 +132,15 @@ folder isn't writable). Missing keys fall back to the defaults. See
 | | `LaunchVK` / `LaunchSC` | `0xFF` / `0x175` | The shortcut's key. |
 | | `LaunchAnySide` | `0` | `1` = left or right Ctrl/Alt/Shift/Win both count. |
 | | `LaunchPath` | `auto` | `auto` (find NitroSense), a path to an `.exe` / `.lnk`, or `shell:AppsFolder\<AppID>`. |
-| `[General]` | `ShowToast` | `1` | Notification at startup, after unlocking, when the display turns on and when an update is found. |
+| `[General]` | `ToastWhen` | `Always` | When to show the "app is running" notification: `Always` (at startup, after unlocking and when the display turns on), `Startup` (only when the app starts) or `Never`. Update notices follow it too. |
 | | `ToastPosition` | `TopCenter` | `TopCenter`, `TopRight`, `TopLeft`, `BottomCenter`, `BottomRight` or `BottomLeft`. |
 | | `ToastAnimation` | `Slide` | `Slide`, `Fade` or `None`. |
 | | `TrayIcon` | `1` | `0` hides the tray icon. Open the app again to reach the settings. |
 | | `CheckUpdates` | `1` | Look for a new version on GitHub once a day. |
 | | `Theme` | `System` | Settings window and tray menu: `System`, `Light` or `Dark`. |
 
-If you edit the file by hand, restart the app (tray → *Restart*).
+If you edit the file by hand, restart the app (tray → *Restart*, or *⋯ → Restart
+app* in the settings window).
 
 ## Tested models
 
@@ -157,7 +190,7 @@ Some vendor keys share the same virtual-key code. On Acer laptops, turning Win
 Lock on and off (<kbd>Fn</kbd>+<kbd>Win</kbd>) sends the NitroSense key's code
 (`VK FF`) with other scan codes (`159` and `162`). With *Exact key match* on (the
 default), the scan code must match too, so only the NitroSense key (`175`) is
-remapped and Win Lock works as usual.
+remapped and Win Lock works as usual. The switch is in Settings → *Advanced*.
 </details>
 
 <details>
@@ -173,7 +206,7 @@ settings window, where you can turn the icon back on.
 
 Only to check for updates: once a day it asks GitHub's API for the latest release
 (nothing about you or your keys is sent). Turn off *Check for updates
-automatically* in the settings to stop it; *Check now* still works on demand.
+automatically* in Settings → *Updates* to stop it; *Check now* still works on demand.
 Installing an update downloads the release zip from GitHub, checks it against the
 published SHA-256 sums, replaces the exe and restarts the app.
 </details>
@@ -188,18 +221,17 @@ this app's control.
 <details>
 <summary><b>Does it work on other laptops or keyboards?</b></summary>
 
-Yes, for any key that reaches Windows as a key press: open the settings, click
-*Change…* next to *Key* and press it. Keys handled entirely by the firmware (like
+Yes, for any key that reaches Windows as a key press: open the settings, go to
+*Keys*, click *Change…* next to *Key* and press it. Keys handled entirely by the firmware (like
 <kbd>Fn</kbd> itself) never reach Windows and can't be remapped.
 </details>
 
 <details>
 <summary><b>How do I uninstall it?</b></summary>
 
-In the settings, turn off *Start with Windows*; then tray icon → *Exit* (if the
-icon is hidden, turn it back on first, or end `Win11KeyRemapper.exe` in Task
-Manager). Delete the app's folder, and `%APPDATA%\Win11KeyRemapper` if it exists.
-Nothing else is installed.
+In the settings (*General*), turn off *Start with Windows*; then *⋯ → Exit app*
+(or tray icon → *Exit*). Delete the app's folder, and
+`%APPDATA%\Win11KeyRemapper` if it exists. Nothing else is installed.
 </details>
 
 <details>
@@ -207,18 +239,17 @@ Nothing else is installed.
 
 In `settings.ini` next to `Win11KeyRemapper.exe`, or in
 `%APPDATA%\Win11KeyRemapper\settings.ini` when the exe's folder isn't writable
-(e.g. under Program Files). Tray → *Open settings folder* takes you there.
+(e.g. under Program Files). Settings → *Advanced* → *Open folder* (or tray →
+*Open settings folder*) takes you there.
 </details>
 
 <a name="run-from-source"></a>
 <details>
 <summary><b>Can I run it from source instead of the exe?</b></summary>
 
-Yes. Install [AutoHotkey v2](https://www.autohotkey.com/), download or clone this
-repository and run `src\Win11KeyRemapper.ahk`. Settings go to `src\settings.ini`.
-*Start with Windows* works too (it starts AutoHotkey with the script). Updates
-aren't installed automatically from source: the app tells you when there's a new
-version and opens the release page.
+Yes, see [Installation → B](#b-with-autohotkey-installed). Updates aren't
+installed automatically from source: the app tells you when there's a new version
+and opens the release page.
 </details>
 
 <details>
@@ -236,9 +267,10 @@ version and opens the release page.
   also reinstalled after unlocking and after sleep.
 - Key-downs that arrive while the key is still held (auto-repeat) are ignored for
   toggles, so holding the key toggles once.
-- The settings window is standard Win32 with custom-drawn cards, keycaps and
-  switches; the notification is drawn once with GDI+ and then only moved and
-  faded by the window manager, so it costs next to nothing.
+- The settings window is standard Win32 with custom-drawn cards, keycaps,
+  switches and sidebar, aware of each monitor's scale; the notification is drawn
+  once with GDI+ and then only moved and faded by the window manager, so it costs
+  next to nothing.
 
 More details in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 </details>
@@ -248,8 +280,17 @@ More details in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 The release exe is the AutoHotkey v2 runtime with the script embedded in it,
 made by [Ahk2Exe](https://github.com/AutoHotkey/Ahk2Exe/releases). GitHub Actions
 builds it on every push; pushing a tag like `v0.2.0` publishes a release with the
-zip and its SHA-256 sums. To do it yourself you need
-[AutoHotkey v2](https://www.autohotkey.com/) and Ahk2Exe:
+zip and its SHA-256 sums.
+
+To build it yourself, one command does everything (it downloads AutoHotkey and
+Ahk2Exe from their GitHub releases into a cache, checks and compiles to
+`dist\Win11KeyRemapper.exe`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File tools\build.ps1
+```
+
+Or step by step, with [AutoHotkey v2](https://www.autohotkey.com/) and Ahk2Exe:
 
 ```powershell
 # Syntax check

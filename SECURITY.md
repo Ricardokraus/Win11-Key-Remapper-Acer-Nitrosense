@@ -3,7 +3,7 @@
 ## Supported versions
 
 Only the [latest release](https://github.com/Ricardokraus/Win11-Key-Remapper/releases/latest)
-gets fixes. The app can update itself (Settings → General → *Check now*).
+gets fixes. The app can update itself (Settings → *Updates* → *Check now*).
 
 ## Reporting a vulnerability
 

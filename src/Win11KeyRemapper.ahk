@@ -61,14 +61,45 @@ TOAST_POSITIONS := ["TopCenter", "TopRight", "TopLeft", "BottomCenter", "BottomR
 TOAST_POSITION_LABELS := ["Top center", "Top right", "Top left", "Bottom center", "Bottom right", "Bottom left"]
 TOAST_ANIMS := ["Slide", "Fade", "None"]
 TOAST_ANIM_LABELS := ["Slide in", "Fade in", "None (just appear)"]
+TOAST_WHENS := ["Always", "Startup", "Never"]
+TOAST_WHEN_LABELS := ["Always", "Only when the app starts", "Never"]
+
+; Settings window sections: id, title, Segoe Fluent Icons / MDL2 glyph
+PAGES := [["general", "General", 0xE713], ["keys", "Keys", 0xE765], ["notifications", "Notifications", 0xEA8F]
+        , ["updates", "Updates", 0xE895], ["advanced", "Advanced", 0xE90F], ["about", "About", 0xE946]]
+LINKS := [["Report a bug", "/issues/new?template=bug_report.yml"]
+        , ["Suggest a feature", "/issues/new?template=feature_request.yml"]
+        , ["Tell us it works on your laptop", "/issues/new?template=works_on_my_laptop.yml"]
+        , ["Ask a question", "/issues/new?template=question.yml"]
+        , ["Project page on GitHub", ""]]
+FAQ_TEXT := "
+(
+My antivirus or SmartScreen warns about the exe
+Apps made with AutoHotkey are often flagged by heuristics, and this one watches the keyboard like a keylogger would. It's a false positive: the exe is built by GitHub Actions from the public source, and each release lists SHA-256 sums. For SmartScreen, click More info > Run anyway once.
+
+It doesn't work while Task Manager is in front
+Windows doesn't pass keys to normal apps while an admin app is focused. The app runs without admin rights on purpose, so it can start silently at logon.
+
+I hid the tray icon. How do I get here again?
+Open the app again: the running copy shows this window instead of starting a second one.
+
+Does it connect to the internet?
+Only to check GitHub for updates (Updates section), and to download one when you install it. Nothing about you or your keys is sent.
+
+Does it work on other laptops?
+Yes, for any key Windows can see: Keys > Change... next to Key, then press it. Keys handled by the firmware (like Fn) can't be remapped.
+
+How do I uninstall it?
+Turn off Start with Windows, then ... > Exit app, and delete the app's folder (and %APPDATA%\Win11KeyRemapper if it exists).
+)"
 
 ; Settings window colors (RGB). "dim" is used for disabled rows.
-THEMES := Map("light", {dark: false, win: 0xF3F3F3, card: 0xFFFFFF, border: 0xE3E3E3
+THEMES := Map("light", {dark: false, win: 0xF3F3F3, card: 0xFFFFFF, border: 0xE3E3E3, navSel: 0xE6E6E6
                       , text: 0x1A1A1A, sub: 0x616161, dim: 0xA8A8A8
                       , on: 0x1E9E48, knobOn: 0xFFFFFF, off: 0x8A8A8A, knobOff: 0x616161
                       , keyFace: 0xFAFAFA, keyEdge: 0xCFCFCF, keyShade: 0xC9C9C9, keyText: 0x1A1A1A
                       , accent: 0x1E9E48, ok: 0x13803A, warn: 0xC42B1C}
-            , "dark", {dark: true, win: 0x202020, card: 0x2B2B2B, border: 0x3A3A3A
+            , "dark", {dark: true, win: 0x202020, card: 0x2B2B2B, border: 0x3A3A3A, navSel: 0x2D2D2D
                       , text: 0xF3F3F3, sub: 0xABABAB, dim: 0x6B6B6B
                       , on: 0x30D158, knobOn: 0x0F2A17, off: 0x9E9E9E, knobOff: 0xCFCFCF
                       , keyFace: 0x3D3D3D, keyEdge: 0x505050, keyShade: 0x171717, keyText: 0xF3F3F3
@@ -99,6 +130,7 @@ INI_HEADER := "
 ; Mode: NumLock | CapsLock | ScrollLock | Key | Disable | None
 ; Modifiers (comma-separated): LCtrl RCtrl LAlt RAlt LShift RShift LWin RWin
 ; LaunchPath: auto, a path to an .exe or .lnk, or shell:AppsFolder\<AppID>
+; ToastWhen: Always (startup, unlock, screen on) | Startup | Never
 ; ToastPosition: TopCenter | TopRight | TopLeft | BottomCenter | BottomRight | BottomLeft
 ; ToastAnimation: Slide | Fade | None
 ; Theme (settings window and tray menu): System | Light | Dark
@@ -121,6 +153,8 @@ CAP := {active: false, target: "", mods: Map(), downs: Map(), result: 0}
 HOOK := {proc: 0, h: 0}
 NS := {checked: false, target: "", label: ""}   ; NitroSense auto-detection cache
 UI := {gui: 0}
+; Settings window layout, in logical pixels
+SL := {W: 820, H: 630, side: 220, cx: 236, cw: 560, rx: 780, kvX: 426, btnX: 684}
 ; Update check: state "" | checking | latest | available | error
 UPD := {state: "", latest: "", page: "", zip: "", sums: "", req: 0, manual: false, t0: 0
       , notified: "", trayItem: "Check for updates"}
@@ -181,11 +215,13 @@ Main() {
     POWER_NOTIFY := DllCall("RegisterPowerSettingNotification", "ptr", A_ScriptHwnd, "ptr", displayGuid, "uint", 0, "ptr")
 
     if firstRun {
-        ShowSettings(true)
+        SetAutostart(true)                  ; on by default; the switch is right there to undo it
+        UpdateTray()
+        ShowSettings("keys")
         SetTimer(() => GlassToast("Welcome to " APP.short, "Choose what the key should do and click Save"), -700)
     } else if args.updated
         SetTimer(() => GlassToast("Updated to version " APP.version, "See what's new on the GitHub release page"), -2000)
-    else if CFG.showToast
+    else if (CFG.toastWhen != "Never")
         SetTimer(StatusToast, -2000)        ; give the desktop time to paint
     ScheduleUpdateCheck()
 }
@@ -264,7 +300,7 @@ DefaultSettings() {
           , targetMods: [], targetVK: 0, targetSC: 0
           , launchEnabled: true, launchMods: ["RCtrl"], launchVK: 0xFF, launchSC: 0x175
           , launchAnySide: false, launchPath: "auto"
-          , showToast: true, toastPosition: "TopCenter", toastAnim: "Slide"
+          , toastWhen: "Always", toastPosition: "TopCenter", toastAnim: "Slide"
           , trayIcon: true, checkUpdates: true, theme: "System"}
 }
 
@@ -316,7 +352,7 @@ LoadSettings(path) {
           , launchSC: IniHex(path, "Launcher", "LaunchSC", d.launchSC)
           , launchAnySide: IniBool(path, "Launcher", "LaunchAnySide", d.launchAnySide)
           , launchPath: launchPath
-          , showToast: IniBool(path, "General", "ShowToast", d.showToast)
+          , toastWhen: IniChoice(path, "General", "ToastWhen", TOAST_WHENS, d.toastWhen)
           , toastPosition: IniChoice(path, "General", "ToastPosition", TOAST_POSITIONS, d.toastPosition)
           , toastAnim: IniChoice(path, "General", "ToastAnimation", TOAST_ANIMS, d.toastAnim)
           , trayIcon: IniBool(path, "General", "TrayIcon", d.trayIcon)
@@ -340,7 +376,7 @@ WriteSettings(path, c) {
     IniWrite(Hex(c.launchSC), path, "Launcher", "LaunchSC")
     IniWrite(c.launchAnySide ? 1 : 0, path, "Launcher", "LaunchAnySide")
     IniWrite(c.launchPath, path, "Launcher", "LaunchPath")
-    IniWrite(c.showToast ? 1 : 0, path, "General", "ShowToast")
+    IniWrite(c.toastWhen, path, "General", "ToastWhen")
     IniWrite(c.toastPosition, path, "General", "ToastPosition")
     IniWrite(c.toastAnim, path, "General", "ToastAnimation")
     IniWrite(c.trayIcon ? 1 : 0, path, "General", "TrayIcon")
@@ -708,7 +744,7 @@ CaptureDone() {
         case "target": DRAFT.targetVK := r.vk, DRAFT.targetSC := r.sc, DRAFT.targetMods := r.mods
         case "launch": DRAFT.launchVK := r.vk, DRAFT.launchSC := r.sc, DRAFT.launchMods := r.mods
     }
-    RefreshSettings()
+    CommitDraft()
 }
 
 ; ============================================================================
@@ -843,7 +879,7 @@ OnSessionChange(wParam, lParam, msg, hwnd) {
     if (wParam = 0x8) {                     ; WTS_SESSION_UNLOCK
         LOCKED := false
         SetTimer(HookInstall, -500)
-        if CFG.showToast
+        if (CFG.toastWhen = "Always")
             SetTimer(StatusToast, -1200)    ; wait until the desktop is visible
     } else if (wParam = 0x7) {              ; WTS_SESSION_LOCK
         LOCKED := true
@@ -866,7 +902,7 @@ OnPower(wParam, lParam, msg, hwnd) {
         SetTimer(GT_Free, -1)
     else if (state = 1 && prev = 0 && !LOCKED) {
         SetTimer(HookInstall, -500)
-        if CFG.showToast
+        if (CFG.toastWhen = "Always")
             SetTimer(StatusToast, -1500)
     }
     prev := state
@@ -892,8 +928,33 @@ BuildTray() {
     tray.Add("Exit", (*) => ExitApp())
     tray.Default := "Settings…"
     tray.ClickCount := 2
+    OnMessage(0x404, OnTrayNotify)          ; AHK_NOTIFYICON
     UpdateTray()
 }
+
+; Shows the tray menu Per-Monitor DPI aware: with the app's system-DPI
+; awareness, Windows put it in the wrong place and at the wrong size on a
+; monitor whose scale differs from the main one.
+OnTrayNotify(wParam, lParam, msg, hwnd) {
+    event := lParam & 0xFFFF
+    if (event != 0x205 && event != 0x7B)    ; WM_RBUTTONUP, WM_CONTEXTMENU
+        return
+    ShowMenuAtCursor(A_TrayMenu)
+    return 1
+}
+
+ShowMenuAtCursor(m) {
+    old := PMv2()
+    pt := Buffer(8)
+    DllCall("GetCursorPos", "ptr", pt)
+    CoordMode("Menu", "Screen")
+    m.Show(NumGet(pt, 0, "int"), NumGet(pt, 4, "int"))
+    PMv2(old)
+}
+
+; Switches this thread to Per-Monitor v2 DPI awareness and returns the old
+; context; PMv2(old) restores it.
+PMv2(old := 0) => DllCall("SetThreadDpiAwarenessContext", "ptr", old ? old : -4, "ptr")
 
 UpdateTray() {
     try {
@@ -908,12 +969,16 @@ UpdateTray() {
     A_IconTip := SubStr(APP.name (PAUSED ? " (paused)" : "") "`n" Summary(), 1, 127)
 }
 
-TogglePause() {
+TogglePause() => SetPaused(!PAUSED)
+
+SetPaused(state, toast := true) {
     global PAUSED
     ReleasePresses()
-    PAUSED := !PAUSED
+    PAUSED := state ? 1 : 0
     UpdateTray()
-    RefreshSettings()                       ; status line, if the window is open
+    RefreshSettings()                       ; if the window is open
+    if !toast
+        return
     if PAUSED
         GlassToast("Remapping paused", "Keys work as usual until you resume", "info", 2500)
     else
@@ -925,10 +990,7 @@ ToggleAutostart() {
     if !SetAutostart(on)
         return
     UpdateTray()
-    if UI.gui {
-        UI.autostartOn := on ? 1 : 0
-        RefreshSettings()
-    }
+    RefreshSettings()
 }
 
 ; Shortcut in the Startup folder. From source it must run AutoHotkey64.exe
@@ -1031,7 +1093,7 @@ UpdateDone(state, manual) {
     UpdateTray()
     RefreshSettings()
     if (state = "available") {
-        if (manual || (CFG.showToast && UPD.notified != UPD.latest))
+        if (manual || (CFG.toastWhen != "Never" && UPD.notified != UPD.latest))
             GlassToast("Update available: " UPD.latest, "Install it from Settings or the tray menu", "update", 7000)
         UPD.notified := UPD.latest
     } else if (manual && state = "latest")
@@ -1160,306 +1222,605 @@ ShowAbout() {
 ; ============================================================================
 ; Settings window
 ; ============================================================================
-; Standard Win32 controls can't draw rounded cards, keycaps or switches, so
-; those are drawn with GDI+ into bitmaps: the cards are painted on
-; WM_ERASEBKGND, the keys and switches are Picture controls redrawn by
-; RefreshSettings. Colors follow Windows' light/dark mode unless the Theme
-; setting picks one; buttons and drop-down lists use the system dark themes.
+; Windows 11 style: a sidebar with sections, each section a column of
+; setting cards (title, description, control on the right). Every change is
+; applied and saved at once; if something is missing (e.g. the key to send),
+; the row says so and the previous setting stays active.
+;
+; Standard Win32 controls can't draw rounded cards, keycaps, switches or the
+; sidebar, so those are drawn with GDI+ into bitmaps: the cards are painted
+; on WM_ERASEBKGND, everything else is a Picture control.
+;
+; The window is Per-Monitor DPI aware (v2) while the rest of the app is
+; system-aware: it's created in a PMv2 thread context with -DPIScale,
+; positions and font sizes are scaled by hand (Px, FontPts) and every
+; control is remembered in UI.items, so on WM_DPICHANGED everything is laid
+; out again for the new monitor and stays sharp.
 
-ShowSettings(firstRun := false) {
+ShowSettings(page := "") {
     global DRAFT
     if UI.gui {
+        if (page != "")
+            ShowPage(page)
         UI.gui.Show()
         return
     }
     DRAFT := CloneSettings(CFG)
-    BuildSettings(firstRun || FileExist(APP.lnk) != "")
+    BuildSettings(page != "" ? page : "keys")
     if !NS.checked
         SetTimer(DetectForApp, -150)        ; after the window is on screen
 }
 
-BuildSettings(autostartOn, posX := "", posY := "") {
+BuildSettings(page, posX := "", posY := "") {
     static hooked := false
     if !hooked {
         OnMessage(0x14, OnSettingsErase)            ; WM_ERASEBKGND: paint the cards
         OnMessage(0x135, OnSettingsCtlColorBtn)     ; WM_CTLCOLORBTN: button corners
         OnMessage(0x134, OnSettingsCtlColorList)    ; WM_CTLCOLORLISTBOX: dark drop-down lists
+        OnMessage(0x2E0, OnSettingsDpiChanged)      ; WM_DPICHANGED: moved to another monitor
+        OnMessage(0x200, OnSettingsMouseMove)       ; WM_MOUSEMOVE: ⓘ tooltips
+        OnMessage(0x138, OnSettingsCtlColorStatic)  ; WM_CTLCOLORSTATIC: icons on cards
         hooked := true
     }
+    old := PMv2()
+    if (posX = "") {                        ; center on the monitor under the mouse
+        mon := GT_MouseMonitor()
+        MonitorGetWorkArea(mon, &wl, &wt, &wr, &wb)
+        UI.dpi := GT_MonitorDpi(mon)
+    } else
+        UI.dpi := DpiAt(posX, posY)
+    UI.k := UI.dpi / 96
     UI.themeName := ThemeName(DRAFT.theme)
     th := UI.th := THEMES[UI.themeName]
-    UI.k := A_ScreenDPI / 96
     UI.tok := GdipStart()
-    UI.autostartOn := autostartOn ? 1 : 0
-    UI.keyText := Map(), UI.tg := Map(), UI.tgState := Map(), UI.cardBtns := Map()
+    UI.page := page, UI.problem := "", UI.problemWhere := "", UI.tipFor := 0, UI.bgBmp := 0
+    UI.items := [], UI.itemOf := Map(), UI.icons := [], UI.groups := Map(), UI.nav := Map()
+    UI.keyText := Map(), UI.tg := Map(), UI.tgState := Map(), UI.cardBtns := Map(), UI.infoTips := Map(), UI.cardStatics := Map()
+    UI.kvW := SL.btnX - 10 - SL.kvX
     UI.brushWin := DllCall("CreateSolidBrush", "uint", Bgr(th.win), "ptr")
     UI.brushCard := DllCall("CreateSolidBrush", "uint", Bgr(th.card), "ptr")
+    for p in PAGES
+        UI.groups[p[1]] := []
 
-    ; Layout in logical pixels (Windows scales the window and controls by
-    ; DPI). Left column: the remap and the NitroSense shortcut. Right column:
-    ; notifications and general options.
-    M := 20, gap := 12, pad := 16, leftW := 500, rightW := 400
-    CW := M + leftW + gap + rightW + M
-    xL := M + pad                               ; left column: row labels
-    xK := xL + 70                               ;   keys and values
-    xB := M + leftW - pad - 96                  ;   "Change…" buttons
-    xR := M + leftW - pad                       ;   right edge inside the cards
-    UI.kvW := xB - 10 - xK
-    rx := M + leftW + gap                       ; right column
-    rL := rx + pad, rK := rL + 90, rR := rx + rightW - pad
-    c3 := {x: rx, y: 70, w: rightW, h: 184}
-    c4 := {x: rx, y: c3.y + c3.h + 10, w: rightW, h: 208}
-    c1 := {x: M, y: 70, w: leftW, h: 210}
-    c2 := {x: M, y: c1.y + c1.h + 10, w: leftW, h: c4.y + c4.h - (c1.y + c1.h + 10)}
-    footY := c2.y + c2.h + 14, CH := footY + 30 + 18
-    UI.bgW := Round(CW * UI.k), UI.bgH := Round(CH * UI.k)
-    UI.bgBmp := RenderBackground(CW, CH, [c1, c2, c3, c4])
-
-    g := Gui("-MinimizeBox -MaximizeBox", APP.name)
+    g := Gui("-MinimizeBox -MaximizeBox -DPIScale", APP.name)
     UI.gui := g
     g.BackColor := Hex6(th.win)
     g.MarginX := 0, g.MarginY := 0
     g.OnEvent("Close", CloseSettings)
     g.OnEvent("Escape", CloseSettings)
 
-    ; Header: icon, name and what the app is doing right now
-    try g.AddPicture("x" M " y16 w32 h32" (A_IsCompiled ? " Icon1" : ""), A_IsCompiled ? A_ScriptFullPath : IconPath())
-    NewLabel(g, "x64 y11 w600 h26", APP.short, th.win, th.text, "s14 w600")
-    UI.status := NewLabel(g, "x64 y38 w" (CW - 84) " h18 0x4080", "", th.win, th.sub, "s9")
-
-    ; Card 1: the key and what it does
-    NewLabel(g, "x" xL " y" (c1.y + 12) " w300 h22", "Remap a key", th.card, th.text, "s11 w600")
-    y := c1.y + 44
-    NewLabel(g, "x" xL " y" (y + 7) " w66 h20", "Key", th.card, th.sub)
-    UI.srcKeys := NewKeyView(g, "source", xK, y)
-    UI.srcBtn := NewButton(g, "x" xB " y" (y + 2) " w96 h30", "Change…", true)
-    y := c1.y + 86
-    NewSwitch(g, "matchSC", xR - 40, y
-            , NewLabel(g, "x" xL " y" y " w" (xR - 50 - xL) " h20", "Exact key match (recommended for vendor keys like NitroSense)", th.card, th.sub, "s9"))
-    y := c1.y + 118
-    NewLabel(g, "x" xL " y" (y + 5) " w66 h20", "Action", th.card, th.sub)
-    g.SetFont("s10 w400 c" Hex6(th.text), "Segoe UI")
-    UI.mode := g.AddDropDownList("x" xK " y" y " w" (xR - xK) " AltSubmit", MODE_LABELS)
-    ThemeCtl(UI.mode, "combo")
-    y := c1.y + 158
-    UI.actionInfo := NewLabel(g, "x" xK " y" (y + 2) " w" (xR - xK) " h34", "", th.card, th.sub, "s9")
-    UI.targetLbl := NewLabel(g, "x" xL " y" (y + 7) " w66 h20", "Sends", th.card, th.sub)
-    UI.targetKeys := NewKeyView(g, "target", xK, y)
-    UI.targetBtn := NewButton(g, "x" xB " y" (y + 2) " w96 h30", "Change…", true)
-
-    ; Card 2: shortcut that opens NitroSense
-    UI.launchTitle := NewLabel(g, "x" xL " y" (c2.y + 12) " w380 h22", "Open NitroSense with a shortcut", th.card, th.text, "s11 w600")
-    NewSwitch(g, "launchEnabled", xR - 40, c2.y + 13, UI.launchTitle)
-    y := c2.y + 46
-    UI.launchLbl := NewLabel(g, "x" xL " y" (y + 7) " w66 h20", "Shortcut", th.card, th.sub)
-    UI.launchKeys := NewKeyView(g, "launch", xK, y)
-    UI.launchBtn := NewButton(g, "x" xB " y" (y + 2) " w96 h30", "Change…", true)
-    y := c2.y + 92
-    UI.anyLbl := NewLabel(g, "x" xL " y" y " w" (xR - 50 - xL) " h20", "Left and right Ctrl, Alt, Shift and Win both work", th.card, th.text)
-    NewSwitch(g, "launchAnySide", xR - 40, y, UI.anyLbl)
-    y := c2.y + 126
-    UI.appLbl := NewLabel(g, "x" xL " y" (y + 7) " w66 h20", "App", th.card, th.sub)
-    UI.appName := NewLabel(g, "x" xK " y" (y - 1) " w" (xB - 82 - xK) " h20 0x4080", "", th.card, th.text)
-    UI.appStatus := NewLabel(g, "x" xK " y" (y + 18) " w" (xB - 82 - xK) " h18 0x4080", "", th.card, th.sub, "s9")
-    UI.auto := NewButton(g, "x" (xB - 72) " y" (y + 2) " w64 h30", "Auto", true)
-    UI.browse := NewButton(g, "x" xB " y" (y + 2) " w96 h30", "Browse…", true)
-
-    ; Card 3: notifications
-    NewLabel(g, "x" rL " y" (c3.y + 12) " w300 h22", "Notifications", th.card, th.text, "s11 w600")
-    y := c3.y + 44
-    NewSwitch(g, "showToast", rR - 40, y
-            , NewLabel(g, "x" rL " y" y " w" (rR - 50 - rL) " h20", "Show when Windows starts or unlocks", th.card, th.text))
-    y := c3.y + 76
-    NewLabel(g, "x" rL " y" (y + 5) " w86 h20", "Position", th.card, th.sub)
-    g.SetFont("s10 w400 c" Hex6(th.text), "Segoe UI")
-    UI.toastPos := g.AddDropDownList("x" rK " y" y " w" (rR - rK) " AltSubmit", TOAST_POSITION_LABELS)
-    ThemeCtl(UI.toastPos, "combo")
-    y := c3.y + 110
-    NewLabel(g, "x" rL " y" (y + 5) " w86 h20", "Animation", th.card, th.sub)
-    g.SetFont("s10 w400 c" Hex6(th.text), "Segoe UI")
-    UI.toastAnim := g.AddDropDownList("x" rK " y" y " w" (rR - rK) " AltSubmit", TOAST_ANIM_LABELS)
-    ThemeCtl(UI.toastAnim, "combo")
-    y := c3.y + 142
-    UI.preview := NewButton(g, "x" rK " y" y " w200 h30", "Show a test notification", true)
-
-    ; Card 4: general options
-    NewLabel(g, "x" rL " y" (c4.y + 12) " w300 h22", "General", th.card, th.text, "s11 w600")
-    rows := [["autostart", "Start with Windows"], ["trayIcon", "Show the icon in the tray"]
-           , ["checkUpdates", "Check for updates automatically"]]
-    for i, row in rows {
-        y := c4.y + 44 + (i - 1) * 30
-        NewSwitch(g, row[1], rR - 40, y
-                , NewLabel(g, "x" rL " y" y " w" (rR - 50 - rL) " h20", row[2], th.card, th.text))
+    ; Sidebar: app name, status, sections
+    AddIcon("", 20, 16, 28)
+    Place("Text", "", 56, 14, 150, 22, "0x80 Background" Hex6(th.win), APP.short, 12, "w600", th.text)
+    UI.status := Place("Text", "", 56, 36, 150, 16, "0x80 Background" Hex6(th.win), "", 8.5, "w400", th.ok)
+    for i, p in PAGES {
+        pic := Place("Picture", "", 8, 72 + (i - 1) * 40, SL.side - 16, 36)
+        pic.OnEvent("Click", ShowPage.Bind(p[1]))
+        UI.nav[p[1]] := pic
     }
-    y := c4.y + 134
-    NewLabel(g, "x" rL " y" y " w100 h20", "Theme", th.card, th.text)
-    g.SetFont("s10 w400 c" Hex6(th.text), "Segoe UI")
-    UI.theme := g.AddDropDownList("x" (rR - 140) " y" (y - 4) " w140 AltSubmit", THEME_PREFS)
-    ThemeCtl(UI.theme, "combo")
-    y := c4.y + 166
-    UI.updBtn := NewButton(g, "x" rL " y" y " w150 h30", "Check now", true)
-    UI.updText := NewLabel(g, "x" (rL + 160) " y" (y + 6) " w" (rR - rL - 160) " h20 0x4080", "", th.card, th.sub, "s9")
 
-    ; Footer
-    UI.reset := NewButton(g, "x" M " y" footY " w140 h30", "Reset to defaults")
-    NewLabel(g, "x" (M + 156) " y" (footY + 7) " w200 h18", "Version " APP.version, th.win, th.sub, "s9")
-    UI.cancel := NewButton(g, "x" (CW - M - 200) " y" footY " w96 h30", "Cancel")
-    UI.save := NewButton(g, "x" (CW - M - 96) " y" footY " w96 h30 Default", "Save")
+    ; Content header: section title and the ⋯ menu
+    UI.title := Place("Text", "", SL.cx, 14, 400, 38, "0x80 Background" Hex6(th.win), "", 20, "w600", th.text)
+    UI.more := NewButton("", SL.W - 24 - 44, 18, 44, Chr(0xE712), false, 11, "Segoe MDL2 Assets|Segoe Fluent Icons")
+    UI.more.OnEvent("Click", ShowMoreMenu)
 
-    UI.srcBtn.OnEvent("Click", (*) => CaptureToggle("source"))
-    UI.targetBtn.OnEvent("Click", (*) => CaptureToggle("target"))
-    UI.launchBtn.OnEvent("Click", (*) => CaptureToggle("launch"))
-    UI.mode.OnEvent("Change", OnModeChange)
-    UI.toastPos.OnEvent("Change", (ctl, *) => DRAFT.toastPosition := TOAST_POSITIONS[ctl.Value])
-    UI.toastAnim.OnEvent("Change", (ctl, *) => DRAFT.toastAnim := TOAST_ANIMS[ctl.Value])
-    UI.preview.OnEvent("Click", PreviewToast)
-    UI.theme.OnEvent("Change", OnThemeChange)
-    UI.updBtn.OnEvent("Click", (*) => UpdateAction())
-    UI.auto.OnEvent("Click", AutoApp)
-    UI.browse.OnEvent("Click", BrowseApp)
-    UI.reset.OnEvent("Click", ResetDraft)
-    UI.cancel.OnEvent("Click", CloseSettings)
-    UI.save.OnEvent("Click", SaveFromGui)
+    BuildGeneralPage()
+    BuildKeysPage()
+    BuildNotificationsPage()
+    BuildUpdatesPage()
+    BuildAdvancedPage()
+    BuildAboutPage()
 
     ThemeTitleBar(g.Hwnd)
     RefreshSettings()
-    showOpts := "w" CW " h" CH
-    if (posX != "")
-        showOpts .= " Hide"
+    ShowPage(page)
+    w := Px(SL.W), h := Px(SL.H)
+    if (posX = "")
+        posX := wl + (wr - wl - w) // 2, posY := wt + Max(0, (wb - wt - h) // 2 - Px(20))
+    showOpts := "x" posX " y" posY " w" w " h" h
     g.Show(showOpts)
-    if (posX != "") {                       ; rebuilt (theme change): keep it where it was
-        WinMove(posX, posY, , , g.Hwnd)
-        g.Show()
+    PMv2(old)
+}
+
+; ---- Pages -----------------------------------------------------------------
+
+BuildGeneralPage() {
+    grp := Group("general", 70)
+    y := Row(grp, 64)
+    RowText("general", y, 64, "Remapping", "Off: all keys work as usual until you turn it back on.", 470)
+    NewSwitch("remapping", "general", SL.rx - 40, y + 22)
+    y := Row(grp, 64)
+    RowText("general", y, 64, "Start with Windows", "Start the app when you sign in.", 470)
+    NewSwitch("autostart", "general", SL.rx - 40, y + 22)
+    y := Row(grp, 64)
+    RowText("general", y, 64, "Show the icon in the tray", "If it's hidden, open the app again to see this window.", 470)
+    NewSwitch("trayIcon", "general", SL.rx - 40, y + 22)
+    y := Row(grp, 64)
+    RowText("general", y, 64, "Theme", "Colors of this window and of the tray menu.", 330)
+    UI.theme := NewList("general", SL.rx - 160, y + 17, 160, THEME_PREFS, OnThemeChange)
+}
+
+BuildKeysPage() {
+    th := UI.th, x := SL.cx + 16
+    grp := Group("keys", 70, "Remap a key")
+    y := Row(grp, 64)
+    r := RowText("keys", y, 64, "Key", "", SL.kvX - 10 - x)
+    UI.srcDesc := r.desc
+    UI.srcKeys := NewKeyView("source", "keys", SL.kvX, y + 15)
+    UI.srcBtn := NewButton("keys", SL.btnX, y + 17, 96, "Change…")
+    UI.srcBtn.OnEvent("Click", (*) => CaptureToggle("source"))
+    y := Row(grp, 92)
+    RowText("keys", y, 92, "Action", "", SL.kvX - 10 - x, "", 17)
+    UI.mode := NewList("keys", SL.kvX, y + 13, SL.rx - SL.kvX, MODE_LABELS, OnModeChange)
+    UI.actionInfo := Place("Text", "keys", x, y + 54, SL.rx - x, 20, "0x80 Background" Hex6(th.card), "", 9, "w400", th.sub)
+    y := Row(grp, 64)
+    r := RowText("keys", y, 64, "Sends", "What to press instead.", SL.kvX - 10 - x)
+    UI.targetTitle := r.title, UI.targetDesc := r.desc
+    UI.targetKeys := NewKeyView("target", "keys", SL.kvX, y + 15)
+    UI.targetBtn := NewButton("keys", SL.btnX, y + 17, 96, "Change…")
+    UI.targetBtn.OnEvent("Click", (*) => CaptureToggle("target"))
+
+    grp := Group("keys", grp.y + grp.h + 16, "NitroSense shortcut")
+    y := Row(grp, 64)
+    RowText("keys", y, 64, "Open an app with a shortcut", "By default, Right Ctrl + NitroSense key opens NitroSense.", SL.rx - 50 - x)
+    NewSwitch("launchEnabled", "keys", SL.rx - 40, y + 22)
+    y := Row(grp, 64)
+    r := RowText("keys", y, 64, "Shortcut", "", SL.kvX - 10 - x)
+    UI.launchTitle := r.title, UI.launchDesc := r.desc
+    UI.launchKeys := NewKeyView("launch", "keys", SL.kvX, y + 15)
+    UI.launchBtn := NewButton("keys", SL.btnX, y + 17, 96, "Change…")
+    UI.launchBtn.OnEvent("Click", (*) => CaptureToggle("launch"))
+    y := Row(grp, 52)
+    r := RowText("keys", y, 52, "Distinguish left and right modifiers", "", SL.rx - 80 - x
+               , "On: only the exact keys of the shortcut work (for example Right Ctrl).`n"
+               . "Off: the same key on either side works too (Left or Right Ctrl).")
+    UI.sidesTitle := r.title
+    NewSwitch("distinguish", "keys", SL.rx - 40, y + 16)
+    y := Row(grp, 64)
+    r := RowText("keys", y, 64, "App to open", "", SL.btnX - 82 - x)
+    UI.appTitle := r.title, UI.appStatus := r.desc
+    UI.auto := NewButton("keys", SL.btnX - 72, y + 17, 64, "Auto")
+    UI.browse := NewButton("keys", SL.btnX, y + 17, 96, "Browse…")
+    UI.auto.OnEvent("Click", AutoApp)
+    UI.browse.OnEvent("Click", BrowseApp)
+}
+
+BuildNotificationsPage() {
+    grp := Group("notifications", 70)
+    y := Row(grp, 64)
+    RowText("notifications", y, 64, "Show notifications", "Always: at startup, after unlocking and when the screen turns on.", 290)
+    UI.toastWhen := NewList("notifications", SL.rx - 220, y + 17, 220, TOAST_WHEN_LABELS
+                          , (ctl, *) => (DRAFT.toastWhen := TOAST_WHENS[ctl.Value], CommitDraft()))
+    y := Row(grp, 64)
+    RowText("notifications", y, 64, "Position", "Where they appear on the screen.", 270)
+    UI.toastPos := NewList("notifications", SL.rx - 220, y + 17, 220, TOAST_POSITION_LABELS
+                         , (ctl, *) => (DRAFT.toastPosition := TOAST_POSITIONS[ctl.Value], CommitDraft()))
+    y := Row(grp, 64)
+    RowText("notifications", y, 64, "Animation", "How they appear and leave.", 270)
+    UI.toastAnim := NewList("notifications", SL.rx - 220, y + 17, 220, TOAST_ANIM_LABELS
+                          , (ctl, *) => (DRAFT.toastAnim := TOAST_ANIMS[ctl.Value], CommitDraft()))
+    y := Row(grp, 64)
+    RowText("notifications", y, 64, "Preview", "Show a notification with these settings.", 330)
+    NewButton("notifications", SL.rx - 160, y + 17, 160, "Show a test").OnEvent("Click", PreviewToast)
+}
+
+BuildUpdatesPage() {
+    grp := Group("updates", 70)
+    y := Row(grp, 64)
+    RowText("updates", y, 64, "Check for updates automatically", "Once a day, from GitHub. Nothing about you is sent.", 470)
+    NewSwitch("checkUpdates", "updates", SL.rx - 40, y + 22)
+    y := Row(grp, 64)
+    r := RowText("updates", y, 64, "Version " APP.version, "", 340)
+    UI.updText := r.desc
+    UI.updBtn := NewButton("updates", SL.rx - 170, y + 17, 170, "Check now")
+    UI.updBtn.OnEvent("Click", (*) => UpdateAction())
+    y := Row(grp, 64)
+    RowText("updates", y, 64, "Release notes", "What changed in each version.", 400)
+    NewButton("updates", SL.rx - 96, y + 17, 96, "Open").OnEvent("Click", (*) => Run(APP.repo "/releases"))
+}
+
+BuildAdvancedPage() {
+    grp := Group("advanced", 70)
+    y := Row(grp, 64)
+    RowText("advanced", y, 64, "Exact key match", "Recommended for vendor keys like NitroSense.", 400
+          , "Also compares the scan code, not only the key code. Needed when several`n"
+          . "keys share a code, like the NitroSense key and Win Lock (Fn+Win) on Acer`n"
+          . "laptops. Turn it off only if your key changes its scan code.")
+    NewSwitch("matchSC", "advanced", SL.rx - 40, y + 22)
+    y := Row(grp, 64)
+    r := RowText("advanced", y, 64, "Settings file", "", SL.rx - 140 - SL.cx - 16)
+    UI.settingsPath := r.desc
+    NewButton("advanced", SL.rx - 130, y + 17, 130, "Open folder").OnEvent("Click", (*) => OpenSettingsFolder())
+    y := Row(grp, 64)
+    RowText("advanced", y, 64, "Reset all settings", "Puts every option back to its default value.", 400)
+    NewButton("advanced", SL.rx - 110, y + 17, 110, "Reset…").OnEvent("Click", ResetSettings)
+    y := Row(grp, 64)
+    RowText("advanced", y, 64, "Restart the app", "For example after editing settings.ini by hand.", 400)
+    NewButton("advanced", SL.rx - 110, y + 17, 110, "Restart").OnEvent("Click", (*) => RestartApp())
+}
+
+BuildAboutPage() {
+    th := UI.th, x := SL.cx + 16
+    grp := Group("about", 70)
+    Row(grp, 84)
+    AddIcon("about", x, 88, 48)
+    Place("Text", "about", x + 64, 84, 400, 26, "0x80 Background" Hex6(th.card), APP.name, 14, "w600", th.text)
+    Place("Text", "about", x + 64, 112, 460, 34, "0x80 Background" Hex6(th.card)
+        , "Version " APP.version " · MIT License · Remaps the NitroSense key, or any other key.", 9, "w400", th.sub)
+
+    grp := Group("about", grp.y + grp.h + 16, "Help and feedback")
+    for link in LINKS {
+        y := Row(grp, 40)
+        url := APP.repo link[2]
+        t := Place("Text", "about", x, y + 10, 400, 20, "0x80 Background" Hex6(th.card), link[1], 10.5, "w400", th.text)
+        icon := Place("Text", "about", SL.rx - 24, y + 11, 20, 18, "Background" Hex6(th.card), Chr(0xE8A7), 10, "w400", th.sub
+                    , "Segoe MDL2 Assets|Segoe Fluent Icons")
+        for ctl in [t, icon]
+            ctl.OnEvent("Click", OpenUrl.Bind(url))
     }
+
+    grp := Group("about", grp.y + grp.h + 16, "Frequently asked questions")
+    Row(grp, SL.H - 20 - grp.y)
+    faq := Place("Edit", "about", x - 4, grp.y + 8, SL.cw - 24, SL.H - 36 - grp.y
+               , "ReadOnly Multi VScroll -E0x200 -TabStop Background" Hex6(th.card), FAQ_TEXT, 9.5, "w400", th.text)
+    ThemeCtl(faq)
 }
 
-NewLabel(g, opts, text, bg, color, font := "s10 w400") {
-    g.SetFont(font " c" Hex6(color), "Segoe UI")
-    return g.AddText(opts " Background" Hex6(bg), text)
+OpenUrl(url, *) => Run(url)
+
+; ---- Building blocks ---------------------------------------------------------
+
+Px(n) => Round(n * UI.k)
+FontPts(pts) => Round(pts * UI.dpi / A_ScreenDPI, 2)   ; AutoHotkey sizes fonts for the main monitor
+
+DpiAt(x, y) {
+    hMon := DllCall("MonitorFromPoint", "int64", (x & 0xFFFFFFFF) | (y << 32), "uint", 2, "ptr")
+    dx := 0, dy := 0
+    try {
+        if DllCall("shcore\GetDpiForMonitor", "ptr", hMon, "int", 0, "uint*", &dx, "uint*", &dy) = 0 && dx
+            return dx
+    }
+    return A_ScreenDPI
 }
 
-NewButton(g, opts, text, onCard := false) {
-    g.SetFont("s10 w400 c" Hex6(UI.th.text), "Segoe UI")
-    btn := g.AddButton(opts, text)
+; Adds a control at logical coordinates and remembers it for DPI changes.
+; page "" = always visible (sidebar, header).
+Place(type, page, x, y, w, h, opts := "", text := "", pts := 10, style := "w400", color := -1, fontName := "Segoe UI") {
+    item := {x: x, y: y, w: w, h: h, pts: pts, style: style, color: color, fontName: fontName, page: page}
+    ItemFont(UI.gui, item)
+    pos := "x" Px(x) " y" Px(y) " w" Px(w) (h != "" ? " h" Px(h) : "")
+    ctl := UI.gui.Add(type, pos " " opts, text)
+    item.ctl := ctl
+    UI.items.Push(item)
+    UI.itemOf[ctl.Hwnd] := item
+    return ctl
+}
+
+ItemFont(target, item) {                ; target: the Gui (before adding) or the control
+    opts := "s" FontPts(item.pts) " " item.style (item.color >= 0 ? " c" Hex6(item.color) : "")
+    for name in StrSplit(item.fontName, "|")
+        target.SetFont(opts, name)      ; the last font that exists wins
+}
+
+AddIcon(page, x, y, size) {
+    has := A_IsCompiled || FileExist(IconPath())       ; from source, assets\ may be missing
+    ctl := Place("Picture", page, x, y, size, size, A_IsCompiled ? "Icon1" : "", has ? (A_IsCompiled ? A_ScriptFullPath : IconPath()) : "")
+    if !has
+        return
+    UI.icons.Push({ctl: ctl, size: size})
+    if (page != "")
+        UI.cardStatics[ctl.Hwnd] := true        ; drawn on a card, not on the window color
+}
+
+IconSpec(size) => (A_IsCompiled ? "*icon1 " : "") "*w" Px(size) " *h" Px(size) " " (A_IsCompiled ? A_ScriptFullPath : IconPath())
+
+; A card group; the rows are added with Row(). Optional section title above.
+Group(page, y, title := "") {
+    if (title != "")
+        Place("Text", page, SL.cx + 2, y, 400, 22, "0x80 Background" Hex6(UI.th.win), title, 10.5, "w600", UI.th.text), y += 28
+    grp := {x: SL.cx, y: y, w: SL.cw, h: 0, dividers: []}
+    UI.groups[page].Push(grp)
+    return grp
+}
+
+Row(grp, h) {
+    if grp.h
+        grp.dividers.Push(grp.h)
+    y := grp.y + grp.h
+    grp.h += h
+    return y
+}
+
+; Title and description on the left of a row; optional ⓘ with a tooltip
+RowText(page, y, h, title, desc, textW, info := "", titleY := "") {
+    th := UI.th, x := SL.cx + 16, bg := " Background" Hex6(th.card)
+    if (titleY = "")
+        titleY := desc = "" && h <= 52 ? (h - 20) // 2 : 12
+    out := {desc: 0}
+    out.title := Place("Text", page, x, y + titleY, textW, 20, "0x80" bg, title, 10.5, "w400", th.text)
+    if (desc != "" || titleY = 12)
+        out.desc := Place("Text", page, x, y + 34, textW, 18, "0x4080" bg, desc, 9, "w400", th.sub)
+    if (info != "") {                       ; the ⓘ goes right after the title
+        tw := TextWidth(out.title, title) + 2
+        UI.itemOf[out.title.Hwnd].w := tw
+        out.title.Move(, , Px(tw))
+        icon := Place("Text", page, x + tw + 6, y + titleY + 2, 18, 18, bg, Chr(0xE946), 10, "w400", th.sub
+                    , "Segoe MDL2 Assets|Segoe Fluent Icons")
+        icon.OnEvent("Click", (ctl, *) => ShowInfoTip(ctl.Hwnd))
+        UI.infoTips[icon.Hwnd] := info
+    }
+    return out
+}
+
+TextWidth(ctl, text) {                  ; in logical pixels, with the control's font
+    hdc := DllCall("GetDC", "ptr", ctl.Hwnd, "ptr")
+    font := SendMessage(0x31, 0, 0, ctl)                    ; WM_GETFONT
+    old := DllCall("SelectObject", "ptr", hdc, "ptr", font, "ptr")
+    sz := Buffer(8, 0)
+    DllCall("GetTextExtentPoint32", "ptr", hdc, "str", text, "int", StrLen(text), "ptr", sz)
+    DllCall("SelectObject", "ptr", hdc, "ptr", old)
+    DllCall("ReleaseDC", "ptr", ctl.Hwnd, "ptr", hdc)
+    return Ceil(NumGet(sz, 0, "int") / UI.k)
+}
+
+NewButton(page, x, y, w, text, onCard := true, pts := 10, fontName := "Segoe UI") {
+    btn := Place("Button", page, x, y, w, 30, "", text, pts, "w400", -1, fontName)
     ThemeCtl(btn)
     if onCard
         UI.cardBtns[btn.Hwnd] := true
     return btn
 }
 
+NewList(page, x, y, w, items, onChange) {
+    ddl := Place("DropDownList", page, x, y, w, "", "AltSubmit", items, 10, "w400", UI.th.text)
+    ThemeCtl(ddl, "combo")
+    ddl.OnEvent("Change", onChange)
+    return ddl
+}
+
 ; The keys of a shortcut drawn as keycaps; click = same as "Change…"
-NewKeyView(g, name, x, y) {
-    pic := g.AddPicture("x" x " y" y " w" UI.kvW " h34")
+NewKeyView(name, page, x, y) {
+    pic := Place("Picture", page, x, y, UI.kvW, 34)
     pic.OnEvent("Click", (*) => CaptureToggle(name))
     return pic
 }
 
-; On/off switch. Clicking its label flips it too.
-NewSwitch(g, name, x, y, label := 0) {
-    pic := g.AddPicture("x" x " y" y " w40 h20")
-    for ctl in (label ? [pic, label] : [pic]) {
-        ctl.OnEvent("Click", (*) => FlipSwitch(name))
-        ctl.OnEvent("DoubleClick", (*) => FlipSwitch(name))     ; fast second click
-    }
+; On/off switch (a picture: clicking it flips the setting)
+NewSwitch(name, page, x, y) {
+    pic := Place("Picture", page, x, y, 40, 20)
+    pic.OnEvent("Click", (*) => FlipSwitch(name))
+    pic.OnEvent("DoubleClick", (*) => FlipSwitch(name))     ; fast second click
     UI.tg[name] := pic
     return pic
 }
 
+ShowPage(name, *) {
+    if !UI.gui
+        return
+    old := PMv2()
+    UI.page := name
+    for item in UI.items
+        if (item.page != "")
+            item.ctl.Visible := item.page = name
+    for p in PAGES
+        if (p[1] = name)
+            UI.title.Value := p[2]
+    ToolTip()
+    RenderChrome()
+    DllCall("InvalidateRect", "ptr", UI.gui.Hwnd, "ptr", 0, "int", 1)
+    PMv2(old)
+}
+
+; Background (cards of the current page) and sidebar items
+RenderChrome() {
+    if UI.bgBmp
+        DllCall("DeleteObject", "ptr", UI.bgBmp)
+    UI.bgW := Px(SL.W), UI.bgH := Px(SL.H)
+    UI.bgBmp := RenderBackground(SL.W, SL.H, UI.groups[UI.page])
+    for p in PAGES
+        UI.nav[p[1]].Value := "HBITMAP:" RenderNav(p[2], p[3], p[1] = UI.page)
+}
+
+ShowMoreMenu(btn, *) {
+    static m := 0
+    if !m {
+        m := Menu()
+        m.Add("Open settings folder", (*) => OpenSettingsFolder())
+        m.Add("Report a bug", (*) => Run(APP.repo LINKS[1][2]))
+        m.Add("Project page on GitHub", (*) => Run(APP.repo))
+        m.Add()
+        m.Add("Restart app", (*) => RestartApp())
+        m.Add("Exit app", (*) => ExitApp())
+    }
+    old := PMv2()
+    WinGetPos(&x, &y, &w, &h, btn.Hwnd)
+    CoordMode("Menu", "Screen")
+    m.Show(x, y + h)
+    PMv2(old)
+}
+
+ShowInfoTip(hwnd) {
+    if !UI.infoTips.Has(hwnd)
+        return
+    UI.tipFor := hwnd
+    old := PMv2()
+    WinGetPos(&x, &y, &w, &h, hwnd)
+    CoordMode("ToolTip", "Screen")
+    ToolTip(UI.infoTips[hwnd], x + w + Px(4), y + h + Px(4))
+    PMv2(old)
+    SetTimer(CheckInfoTip, 250)
+}
+
+CheckInfoTip() {
+    MouseGetPos(, , , &over, 2)
+    if (over = UI.tipFor)
+        return
+    ToolTip()
+    UI.tipFor := 0
+    SetTimer(CheckInfoTip, 0)
+}
+
+OnSettingsMouseMove(wParam, lParam, msg, hwnd) {
+    if (UI.gui && UI.infoTips.Has(hwnd) && UI.tipFor != hwnd)
+        ShowInfoTip(hwnd)
+}
+
+; Moved to a monitor with another scale: lay everything out again
+OnSettingsDpiChanged(wParam, lParam, msg, hwnd) {
+    if (!UI.gui || hwnd != UI.gui.Hwnd)
+        return
+    if ((wParam & 0xFFFF) = UI.dpi)         ; e.g. first shown on this monitor: already laid out for it
+        return 0
+    UI.dpi := wParam & 0xFFFF, UI.k := UI.dpi / 96
+    ApplyLayout()
+    DllCall("SetWindowPos", "ptr", hwnd, "ptr", 0, "int", NumGet(lParam, 0, "int"), "int", NumGet(lParam, 4, "int")
+          , "int", NumGet(lParam, 8, "int") - NumGet(lParam, 0, "int"), "int", NumGet(lParam, 12, "int") - NumGet(lParam, 4, "int")
+          , "uint", 0x14)                                   ; SWP_NOZORDER | SWP_NOACTIVATE
+    return 0
+}
+
+ApplyLayout() {
+    old := PMv2()
+    for item in UI.items {
+        if (item.ctl.Type != "Pic")             ; pictures have no font
+            ItemFont(item.ctl, item)
+        if (item.h = "")
+            item.ctl.Move(Px(item.x), Px(item.y), Px(item.w))
+        else
+            item.ctl.Move(Px(item.x), Px(item.y), Px(item.w), Px(item.h))
+    }
+    for icon in UI.icons
+        icon.ctl.Value := IconSpec(icon.size)
+    RenderChrome()
+    RefreshSettings()
+    DllCall("InvalidateRect", "ptr", UI.gui.Hwnd, "ptr", 0, "int", 1)
+    PMv2(old)
+}
+
+; ---- State -> window -----------------------------------------------------------
+
 FlipSwitch(name) {
     if (!UI.gui || !UI.tg[name].Enabled)
         return
-    if (name = "autostart")
-        UI.autostartOn := !UI.autostartOn
+    switch name {
+        case "remapping":
+            SetPaused(!PAUSED, false)
+        case "autostart":
+            SetAutostart(!FileExist(APP.lnk))
+            UpdateTray()
+            RefreshSettings()
+        case "distinguish":
+            DRAFT.launchAnySide := !DRAFT.launchAnySide
+            CommitDraft()
+        default:
+            DRAFT.%name% := !DRAFT.%name%
+            if (name = "launchEnabled" && !DRAFT.launchEnabled && CAP.active && CAP.target = "launch")
+                CaptureCancel()
+            CommitDraft()
+    }
+}
+
+; Applies and saves the draft if it's complete; otherwise the row that needs
+; something says so and the active settings stay as they were
+CommitDraft() {
+    global CFG
+    UI.problem := ValidateSettings(DRAFT, &where), UI.problemWhere := where
+    if (UI.problem != "") {
+        RefreshSettings()
+        return false
+    }
+    themeChanged := UI.gui && ThemeName(DRAFT.theme) != UI.themeName
+    hidingIcon := CFG.trayIcon && !DRAFT.trayIcon
+    CFG := CloneSettings(DRAFT)
+    try WriteSettings(SETTINGS_PATH, CFG)
+    catch as e
+        GlassToast("Couldn't save the settings", e.Message, "warn")
+    ApplySettings()
+    ApplyAppTheme(CFG.theme)
+    ScheduleUpdateCheck()
+    if hidingIcon
+        GlassToast("The tray icon is hidden", "To see the settings again, open the app again", "info", 7000)
+    if themeChanged
+        SetTimer(RebuildSettings, -1)       ; not from inside the control's own event
     else
-        DRAFT.%name% := !DRAFT.%name%
-    if (name = "launchEnabled" && !DRAFT.launchEnabled && CAP.active && CAP.target = "launch")
-        CaptureCancel()
-    RefreshSettings()
+        RefreshSettings()
+    return true
 }
 
 RefreshSettings() {
     if !UI.gui
         return
+    old := PMv2()
     d := DRAFT, th := UI.th
     listening := CAP.active ? CAP.target : ""
     isKey := d.mode = "Key", on := d.launchEnabled ? 1 : 0
 
-    UI.status.Value := PAUSED ? "Paused: keys work as usual" : "Active · " Summary(CFG)
+    UI.status.Value := PAUSED ? "Paused" : "Active"
+    UI.status.SetFont("c" Hex6(PAUSED ? th.warn : th.ok))
 
+    ; General
+    SetSwitch("remapping", !PAUSED)
+    SetSwitch("autostart", FileExist(APP.lnk) != "")
+    SetSwitch("trayIcon", d.trayIcon)
+    UI.theme.Value := ChoiceIndex(THEME_PREFS, d.theme)
+
+    ; Keys
     SetKeyView("source", UI.srcKeys, [], d.sourceVK, d.sourceSC, false, listening = "source")
     UI.srcBtn.Text := listening = "source" ? "Cancel" : "Change…"
-    SetSwitch("matchSC", d.matchSC)
     UI.mode.Value := ChoiceIndex(MODES, d.mode)
-    UI.actionInfo.Value := isKey ? "" : ACTION_INFO[d.mode]
-    UI.actionInfo.Visible := !isKey
-    for ctl in [UI.targetLbl, UI.targetKeys, UI.targetBtn]
-        ctl.Visible := isKey
-    if isKey
-        SetKeyView("target", UI.targetKeys, d.targetMods, d.targetVK, d.targetSC, false, listening = "target")
+    UI.actionInfo.Value := isKey ? "Presses the key or shortcut chosen below instead." : ACTION_INFO[d.mode]
+    SetKeyView("target", UI.targetKeys, d.targetMods, d.targetVK, d.targetSC, false, listening = "target", !isKey)
+    UI.targetKeys.Enabled := isKey, UI.targetBtn.Enabled := isKey
     UI.targetBtn.Text := listening = "target" ? "Cancel" : "Change…"
+    UI.targetTitle.SetFont("c" Hex6(isKey ? th.text : th.dim))
+    RowNote(UI.srcDesc, "source", KeyCode(d.sourceVK, d.sourceSC))
+    RowNote(UI.targetDesc, "target", isKey ? KeyCode(d.targetVK, d.targetSC) : "Not used by this action", !isKey)
 
     SetSwitch("launchEnabled", on)
     SetKeyView("launch", UI.launchKeys, d.launchMods, d.launchVK, d.launchSC, d.launchAnySide, listening = "launch", !on)
     UI.launchKeys.Enabled := on
     UI.launchBtn.Text := listening = "launch" ? "Cancel" : "Change…"
-    SetSwitch("launchAnySide", d.launchAnySide, !on)
+    SetSwitch("distinguish", !d.launchAnySide, !on)
     for ctl in [UI.launchBtn, UI.auto, UI.browse]
         ctl.Enabled := on
-    for ctl in [UI.launchLbl, UI.appLbl]
-        ctl.SetFont("c" Hex6(on ? th.sub : th.dim))
-    for ctl in [UI.anyLbl, UI.appName]
+    for ctl in [UI.launchTitle, UI.sidesTitle, UI.appTitle]
         ctl.SetFont("c" Hex6(on ? th.text : th.dim))
+    RowNote(UI.launchDesc, "launch", KeyCode(d.launchVK, d.launchSC), !on)
     UpdateApp()
 
-    SetSwitch("showToast", d.showToast)
+    ; Notifications
+    UI.toastWhen.Value := ChoiceIndex(TOAST_WHENS, d.toastWhen)
     UI.toastPos.Value := ChoiceIndex(TOAST_POSITIONS, d.toastPosition)
     UI.toastAnim.Value := ChoiceIndex(TOAST_ANIMS, d.toastAnim)
 
-    SetSwitch("autostart", UI.autostartOn)
-    SetSwitch("trayIcon", d.trayIcon)
+    ; Updates
     SetSwitch("checkUpdates", d.checkUpdates)
-    UI.theme.Value := ChoiceIndex(THEME_PREFS, d.theme)
     UpdateUpdatesRow()
+
+    ; Advanced
+    SetSwitch("matchSC", d.matchSC)
+    UI.settingsPath.Value := SETTINGS_PATH
+    PMv2(old)
 }
 
-UpdateUpdatesRow() {
-    if !UI.gui
-        return
-    th := UI.th, color := th.sub
-    switch UPD.state {
-        case "checking":
-            btn := "Checking…", text := ""
-        case "available":
-            btn := (A_IsCompiled ? "Install " : "Download ") UPD.latest
-            text := "A new version is available", color := th.ok
-        case "latest":
-            btn := "Check now", text := "You're up to date"
-        case "error":
-            btn := "Check now", text := "Couldn't check. Try again later.", color := th.warn
-        default:
-            btn := "Check now", text := ""
+; A row's description, or what's missing (in red) if the problem is there
+RowNote(ctl, where, normal, dim := false) {
+    th := UI.th
+    if (UI.problemWhere = where) {
+        ctl.Value := where = "target" ? "Click Change… to choose it." : "Add a modifier, e.g. Right Ctrl."
+        ctl.SetFont("c" Hex6(th.warn))
+    } else {
+        ctl.Value := normal
+        ctl.SetFont("c" Hex6(dim ? th.dim : th.sub))
     }
-    UI.updBtn.Text := btn
-    UI.updBtn.Enabled := UPD.state != "checking"
-    UI.updText.Value := text
-    UI.updText.SetFont("c" Hex6(color))
 }
 
-; Shows a notification with the position and animation chosen in the window
-PreviewToast(*) {
-    saved := [GTCFG.position, GTCFG.animation]
-    GTCFG.position := DRAFT.toastPosition, GTCFG.animation := DRAFT.toastAnim
-    try GlassToast("This is how notifications look"
-                 , TOAST_POSITION_LABELS[ChoiceIndex(TOAST_POSITIONS, DRAFT.toastPosition)] " · "
-                 . TOAST_ANIM_LABELS[ChoiceIndex(TOAST_ANIMS, DRAFT.toastAnim)], "ok", 3000)
-    GTCFG.position := saved[1], GTCFG.animation := saved[2]
-}
+KeyCode(vk, sc) => vk ? Format("Code: VK {:X} · SC {:X}", vk, sc) : "Not set yet"
 
 SetKeyView(name, pic, mods, vk, sc, anySide, listen, dim := false) {
     parts := vk ? ComboParts(mods, vk, sc, anySide) : []
-    code := (vk && !listen) ? Format("VK {:X} · SC {:X}", vk, sc) : ""
     UI.keyText[name] := listen ? "listening" : vk ? ComboLabel(mods, vk, sc, anySide) : "Not set"
-    pic.Value := "HBITMAP:" RenderKeys(parts, code, listen, dim)
+    pic.Value := "HBITMAP:" RenderKeys(parts, "", listen, dim)
 }
 
 SetSwitch(name, on, dim := false) {
@@ -1485,23 +1846,45 @@ UpdateApp() {
             status := "Looking for it…"
         else if (NS.target != "") {
             SplitPath(NS.target, &file)
-            status := SubStr(NS.target, 1, 6) = "shell:" ? "Found automatically" : "Found automatically (" file ")"
+            status := SubStr(NS.target, 1, 6) = "shell:" ? "found automatically" : "found automatically (" file ")"
             color := th.ok
         } else
-            status := "Not found: click Browse…", color := th.warn
+            status := "not found: click Browse…", color := th.warn
+        status := name ", " status
     } else if (SubStr(p, 1, 6) = "shell:") {
-        name := "App from the Apps folder", status := "Chosen by you"
+        status := "An app from the Apps folder (chosen by you)"
     } else {
         SplitPath(p, &file)
-        name := file
         if FileExist(p)
-            status := "Chosen by you"
+            status := file " (chosen by you)"
         else
-            status := "File not found: click Browse…", color := th.warn
+            status := file ": file not found, click Browse…", color := th.warn
     }
-    UI.appName.Value := name
     UI.appStatus.Value := status
     UI.appStatus.SetFont("c" Hex6(DRAFT.launchEnabled ? color : th.dim))
+}
+
+UpdateUpdatesRow() {
+    if !UI.gui
+        return
+    th := UI.th, color := th.sub
+    switch UPD.state {
+        case "checking":
+            btn := "Checking…", text := "Looking for a new version…"
+        case "available":
+            btn := (A_IsCompiled ? "Install " : "Download ") UPD.latest
+            text := "A new version is available", color := th.ok
+        case "latest":
+            btn := "Check now", text := "You're up to date"
+        case "error":
+            btn := "Check now", text := "Couldn't check. Try again later.", color := th.warn
+        default:
+            btn := "Check now", text := "Not checked yet"
+    }
+    UI.updBtn.Text := btn
+    UI.updBtn.Enabled := UPD.state != "checking"
+    UI.updText.Value := text
+    UI.updText.SetFont("c" Hex6(color))
 }
 
 DetectForApp() {
@@ -1509,24 +1892,25 @@ DetectForApp() {
     UpdateApp()
 }
 
+; ---- Window -> settings ----------------------------------------------------------
+
 OnModeChange(ctl, *) {
     DRAFT.mode := MODES[ctl.Value]
     if (CAP.active && CAP.target = "target" && DRAFT.mode != "Key")
         CaptureCancel()
-    RefreshSettings()
+    CommitDraft()
 }
 
 OnThemeChange(ctl, *) {
     DRAFT.theme := THEME_PREFS[ctl.Value]
-    if (ThemeName(DRAFT.theme) != UI.themeName)
-        SetTimer(RebuildSettings, -1)       ; not from inside the control's own event
+    CommitDraft()
 }
 
 AutoApp(*) {
     DRAFT.launchPath := "auto"
     if !NS.checked
         SetTimer(DetectForApp, -1)
-    RefreshSettings()
+    CommitDraft()
 }
 
 BrowseApp(*) {
@@ -1534,66 +1918,47 @@ BrowseApp(*) {
     file := FileSelect(35, , "Choose the app to open", "Programs (*.exe; *.lnk)")   ; 1+2+32: must exist, keep .lnk
     if (file != "") {
         DRAFT.launchPath := file
-        RefreshSettings()
+        CommitDraft()
     }
 }
 
-ResetDraft(*) {
+ResetSettings(*) {
     global DRAFT
+    UI.gui.Opt("+OwnDialogs")
+    if (MsgBox("Put every option back to its default value?", APP.short, "YesNo Icon?") != "Yes")
+        return
     CaptureCancel()
     DRAFT := DefaultSettings()
-    if (ThemeName(DRAFT.theme) != UI.themeName)
-        SetTimer(RebuildSettings, -1)
-    else
-        RefreshSettings()
+    CommitDraft()
 }
 
-ValidateSettings(d) {
+; Shows a notification with the position and animation chosen in the window
+PreviewToast(*) {
+    saved := [GTCFG.position, GTCFG.animation]
+    GTCFG.position := DRAFT.toastPosition, GTCFG.animation := DRAFT.toastAnim
+    try GlassToast("This is how notifications look"
+                 , TOAST_POSITION_LABELS[ChoiceIndex(TOAST_POSITIONS, DRAFT.toastPosition)] " · "
+                 . TOAST_ANIM_LABELS[ChoiceIndex(TOAST_ANIMS, DRAFT.toastAnim)], "ok", 3000)
+    GTCFG.position := saved[1], GTCFG.animation := saved[2]
+}
+
+; Blocking problems only; where = the row that must show it
+ValidateSettings(d, &where := "") {
+    where := ""
     if (d.mode != "None" && !d.sourceVK)
-        return "Choose the key to remap first: click Change… next to Key."
+        return (where := "source", "Choose the key to remap first: click Change… next to Key.")
     if (d.mode = "Key" && !d.targetVK)
-        return "Choose the key or shortcut to send: click Change… next to Sends. Or pick another action."
+        return (where := "target", "Choose the key or shortcut to send: click Change… next to Sends.")
     if d.launchEnabled {
         if !d.launchVK
-            return "Choose the shortcut that opens NitroSense (Change… next to Shortcut), or turn the shortcut off."
+            return (where := "launch", "Choose the shortcut that opens NitroSense, or turn it off.")
         if (!d.launchMods.Length && d.mode != "None" && SameKey(d.launchVK, d.launchSC, d.sourceVK, d.sourceSC))
-            return "The shortcut to open NitroSense is the key you are remapping, so the remap would never run.`n`nAdd a modifier to the shortcut, for example Right Ctrl."
-        if (d.launchPath != "auto" && !TargetExists(d.launchPath))
-            return "The app to open was not found:`n" d.launchPath
+            return (where := "launch", "The shortcut to open NitroSense is the key you are remapping, so the remap would never run. Add a modifier, for example Right Ctrl.")
     }
     return ""
 }
 
 SameKey(vk1, sc1, vk2, sc2) => vk1 = vk2 && (!sc1 || !sc2 || sc1 = sc2)
-
-SaveFromGui(*) {
-    global CFG
-    CaptureCancel()
-    if (err := ValidateSettings(DRAFT)) {
-        UI.gui.Opt("+OwnDialogs")
-        MsgBox(err, APP.short, "Icon!")
-        RefreshSettings()
-        return
-    }
-    hidingIcon := CFG.trayIcon && !DRAFT.trayIcon
-    CFG := CloneSettings(DRAFT)
-    try WriteSettings(SETTINGS_PATH, CFG)
-    catch as e {
-        UI.gui.Opt("+OwnDialogs")
-        MsgBox("The settings are applied, but they couldn't be saved to:`n" SETTINGS_PATH "`n`n" e.Message, APP.short, "Icon!")
-    }
-    ApplySettings()
-    ApplyAppTheme(CFG.theme)
-    ScheduleUpdateCheck()
-    if (UI.autostartOn != (FileExist(APP.lnk) != ""))
-        SetAutostart(UI.autostartOn)
-    UpdateTray()
-    CloseSettings()
-    if hidingIcon
-        GlassToast("The tray icon is hidden", "To open the settings, start the app again", "info", 7000)
-    else
-        GlassToast("Settings saved", Summary(), "ok", 2500)
-}
 
 CloseSettings(*) {
     CaptureCancel()
@@ -1603,6 +1968,8 @@ CloseSettings(*) {
 DestroySettings() {
     if !UI.gui
         return
+    ToolTip()
+    SetTimer(CheckInfoTip, 0)
     g := UI.gui
     UI.gui := 0
     g.Destroy()
@@ -1614,15 +1981,17 @@ DestroySettings() {
         DllCall("gdiplus\GdiplusShutdown", "ptr", UI.tok), UI.tok := 0
 }
 
-; Rebuilds the window with the draft's theme, at the same place
+; Rebuilds the window (theme change) at the same place and section
 RebuildSettings() {
     if !UI.gui
         return
+    old := PMv2()
     WinGetPos(&wx, &wy, , , UI.gui.Hwnd)
-    autostartOn := UI.autostartOn
+    PMv2(old)
+    page := UI.page
     CaptureCancel()
     DestroySettings()
-    BuildSettings(autostartOn, wx, wy)
+    BuildSettings(page, wx, wy)
 }
 
 ; ---- Theme -----------------------------------------------------------------
@@ -1694,6 +2063,11 @@ OnSettingsErase(wParam, lParam, msg, hwnd) {
 OnSettingsCtlColorBtn(wParam, lParam, msg, hwnd) {
     if (UI.gui && hwnd = UI.gui.Hwnd)
         return UI.cardBtns.Has(lParam) ? UI.brushCard : UI.brushWin
+}
+
+OnSettingsCtlColorStatic(wParam, lParam, msg, hwnd) {
+    if (UI.gui && hwnd = UI.gui.Hwnd && UI.cardStatics.Has(lParam))
+        return UI.brushCard
 }
 
 OnSettingsCtlColorList(wParam, lParam, msg, hwnd) {
@@ -1771,15 +2145,48 @@ FillCircle(g, x, y, d, argb) {
     DllCall("gdiplus\GdipDeleteBrush", "ptr", brush)
 }
 
-; Window background: the rounded cards on the window color
-RenderBackground(wL, hL, cards) {
+; Window background: the rounded card groups (with row dividers) on the window color
+RenderBackground(wL, hL, groups) {
     th := UI.th, k := UI.k
     cv := Canvas(wL, hL, th.win)
-    for c in cards {
+    for c in groups {
         x := Round(c.x * k), y := Round(c.y * k), cw := Round(c.w * k), ch := Round(c.h * k)
         FillPathFree(cv.g, GT_RoundPath(x, y, cw, ch, 8 * k), Argb(th.card))
         StrokePathFree(cv.g, GT_RoundPath(x + 0.5, y + 0.5, cw - 1, ch - 1, 8 * k), Argb(th.border), 1)
+        for dy in c.dividers {
+            pen := 0, ly := y + Round(dy * k) + 0.5
+            DllCall("gdiplus\GdipCreatePen1", "uint", Argb(th.border), "float", 1, "int", 2, "ptr*", &pen)
+            DllCall("gdiplus\GdipDrawLine", "ptr", cv.g, "ptr", pen, "float", x + 1, "float", ly, "float", x + cw - 1, "float", ly)
+            DllCall("gdiplus\GdipDeletePen", "ptr", pen)
+        }
     }
+    return CanvasDone(cv, th.win)
+}
+
+; A sidebar entry: icon glyph and label; the selected one gets a pill and an accent bar
+RenderNav(label, glyph, selected) {
+    th := UI.th, k := UI.k
+    cv := Canvas(SL.side - 16, 36, th.win), g := cv.g
+    if selected {
+        FillPathFree(g, GT_RoundPath(0, 0, cv.w, cv.h, 5 * k), Argb(th.navSel))
+        FillPathFree(g, GT_RoundPath(0, (cv.h - 16 * k) / 2, 3 * k, 16 * k, 1.5 * k), Argb(th.accent))
+    }
+    famI := GT_Family("Segoe Fluent Icons")
+    if !famI
+        famI := GT_Family("Segoe MDL2 Assets")
+    famT := GT_Family("Segoe UI")
+    fmt := NewFormat(0)
+    if famI {
+        fi := GT_Font(famI, 15 * k, 0)
+        GT_Text(g, Chr(glyph), fi, Argb(th.text), 14 * k, 0, 24 * k, cv.h, fmt)
+        DllCall("gdiplus\GdipDeleteFont", "ptr", fi)
+        DllCall("gdiplus\GdipDeleteFontFamily", "ptr", famI)
+    }
+    ft := GT_Font(famT, 13.5 * k, selected ? 1 : 0)
+    GT_Text(g, label, ft, Argb(th.text), 46 * k, 0, cv.w - 50 * k, cv.h, fmt)
+    DllCall("gdiplus\GdipDeleteFont", "ptr", ft)
+    DllCall("gdiplus\GdipDeleteFontFamily", "ptr", famT)
+    DllCall("gdiplus\GdipDeleteStringFormat", "ptr", fmt)
     return CanvasDone(cv, th.win)
 }
 
