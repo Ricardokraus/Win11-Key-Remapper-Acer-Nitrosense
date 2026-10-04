@@ -23,11 +23,18 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # Official GitHub releases. autohotkey.com sits behind Cloudflare,
+          # which can block CI runners. The zip is the same file.
           $tools = "$env:RUNNER_TEMP\tools"
           New-Item -ItemType Directory -Force $tools | Out-Null
-          Invoke-WebRequest https://www.autohotkey.com/download/ahk-v2.zip -OutFile "$tools\ahk-v2.zip"
-          Expand-Archive "$tools\ahk-v2.zip" "$tools\ahk" -Force
-          gh release download -R AutoHotkey/Ahk2Exe -p "Ahk2Exe*.zip" -D $tools
+          $tag = gh release list -R AutoHotkey/AutoHotkey --exclude-pre-releases --limit 30 --json tagName --jq '.[].tagName' |
+                 Where-Object { $_ -like 'v2.*' } | Select-Object -First 1
+          if (-not $tag) { Write-Error 'No AutoHotkey v2 release found'; exit 1 }
+          gh release download $tag -R AutoHotkey/AutoHotkey -p 'AutoHotkey_*.zip' -D $tools
+          if ($LASTEXITCODE) { exit 1 }
+          gh release download -R AutoHotkey/Ahk2Exe -p 'Ahk2Exe*.zip' -D $tools
+          if ($LASTEXITCODE) { exit 1 }
+          Expand-Archive (Get-Item "$tools\AutoHotkey_*.zip").FullName "$tools\ahk" -Force
           Expand-Archive (Get-Item "$tools\Ahk2Exe*.zip").FullName "$tools\ahk2exe" -Force
           "AHK=$tools\ahk\AutoHotkey64.exe" >> $env:GITHUB_ENV
           "AHK2EXE=$tools\ahk2exe\Ahk2Exe.exe" >> $env:GITHUB_ENV
