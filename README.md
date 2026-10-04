@@ -39,11 +39,12 @@ is a tiny tray app that gives that key a better job — or any other key you pic
   version, or opens any app you choose.
 - **Settings window in the Windows 11 style**: sections in a sidebar (General,
   Keys, Notifications, Updates, Advanced, About), **light and dark mode** (follows
-  Windows, or pick one), changes applied instantly, and sharp on every monitor,
-  whatever its scale.
+  Windows, or pick one), changes applied instantly, small animations, and sharp
+  and smooth on every monitor, whatever its scale.
 - **Notifications your way**: always (at startup, after unlocking and when the
   screen turns on), only when the app starts, or never; choose where they appear
-  (six positions) and how (slide, fade or none), with a preview button.
+  (six positions), how (slide, fade or none) and whether they're frosted glass or
+  solid, with a preview button.
 - **Tray menu** with pause, restart and *Start with Windows* — or **hide the tray
   icon** completely (open the app again to reach its settings).
 - **Stays up to date**: checks GitHub for a new version once a day and installs
@@ -88,7 +89,8 @@ There are two ways to run it. Both do exactly the same; pick one.
    settings are saved in `src\settings.ini`.
 
 Don't run both at the same time: if one is already running, opening the other just
-shows the running copy's settings. To switch, use *⋯ → Exit app* first.
+shows the running copy's settings. To switch, click *Exit* first (settings →
+*General* → *App*).
 
 <!-- Demo GIF: record with ScreenToGif, save as assets/demo.gif and uncomment.
 <p align="center"><img src="assets/demo.gif" alt="Detecting the NitroSense key and remapping it to Num Lock" width="640"></p>
@@ -108,7 +110,8 @@ Everything goes through GitHub **Issues**. You need a free GitHub account.
    - ❓ **Question** — anything else.
 3. Fill in the form and click **Create**. GitHub emails you when someone answers.
 
-The same links are in the app: settings window → *About* → *Help and feedback*.
+The same links, and one to the [FAQ](#faq), are in the app: settings window →
+*About* → *Help and feedback*.
 
 Found a security problem? Please report it privately instead — see
 [SECURITY.md](SECURITY.md). And if the app helps you, a ⭐ helps others find it.
@@ -135,12 +138,13 @@ folder isn't writable). Missing keys fall back to the defaults. See
 | `[General]` | `ToastWhen` | `Always` | When to show the "app is running" notification: `Always` (at startup, after unlocking and when the display turns on), `Startup` (only when the app starts) or `Never`. Update notices follow it too. |
 | | `ToastPosition` | `TopCenter` | `TopCenter`, `TopRight`, `TopLeft`, `BottomCenter`, `BottomRight` or `BottomLeft`. |
 | | `ToastAnimation` | `Slide` | `Slide`, `Fade` or `None`. |
+| | `ToastTransparency` | `1` | `1` = frosted glass (blurs what's behind it); `0` = a solid card in the settings window's colors, lighter for older or low-power PCs. |
 | | `TrayIcon` | `1` | `0` hides the tray icon. Open the app again to reach the settings. |
 | | `CheckUpdates` | `1` | Look for a new version on GitHub once a day. |
 | | `Theme` | `System` | Settings window and tray menu: `System`, `Light` or `Dark`. |
 
-If you edit the file by hand, restart the app (tray → *Restart*, or *⋯ → Restart
-app* in the settings window).
+If you edit the file by hand, restart the app (tray → *Restart*, or settings →
+*General* → *Restart*).
 
 ## Tested models
 
@@ -154,10 +158,13 @@ even if it didn't work — that's how this list grows.
 
 ## FAQ
 
-<details>
-<summary><b>My antivirus says the exe is a threat</b></summary>
+Click a question to see the answer.
 
-Apps compiled with AutoHotkey are sometimes flagged by heuristic scanners: the
+<details>
+<summary><b>Q: My antivirus says the exe is a threat</b></summary>
+<br>
+
+**A:** Apps compiled with AutoHotkey are sometimes flagged by heuristic scanners: the
 same runtime is used by countless scripts (some of them malicious), and this app
 installs a keyboard hook, which is also what keyloggers do. It's a false
 positive. The exe is built by GitHub Actions straight from the source in this
@@ -168,25 +175,28 @@ vendor, or [run it from source](#run-from-source).
 </details>
 
 <details>
-<summary><b>"Windows protected your PC" (SmartScreen)</b></summary>
+<summary><b>Q: "Windows protected your PC" (SmartScreen)</b></summary>
+<br>
 
-The exe isn't code-signed yet, so SmartScreen doesn't know it. Click
+**A:** The exe isn't code-signed yet, so SmartScreen doesn't know it. Click
 *More info* → *Run anyway*. You'll only see it the first time.
 </details>
 
 <details>
-<summary><b>It doesn't work while Task Manager is focused</b></summary>
+<summary><b>Q: It doesn't work while Task Manager is focused</b></summary>
+<br>
 
-Windows doesn't pass keystrokes to apps without admin rights while an app with
+**A:** Windows doesn't pass keystrokes to apps without admin rights while an app with
 admin rights (like Task Manager) is in the foreground. That's a Windows security
 rule (UIPI). This app deliberately runs without admin rights so it can start
 silently at logon. Click any normal window and it works again.
 </details>
 
 <details>
-<summary><b>What does <i>Exact key match</i> do?</b></summary>
+<summary><b>Q: What does <i>Exact key match</i> do?</b></summary>
+<br>
 
-Some vendor keys share the same virtual-key code. On Acer laptops, turning Win
+**A:** Some vendor keys share the same virtual-key code. On Acer laptops, turning Win
 Lock on and off (<kbd>Fn</kbd>+<kbd>Win</kbd>) sends the NitroSense key's code
 (`VK FF`) with other scan codes (`159` and `162`). With *Exact key match* on (the
 default), the scan code must match too, so only the NitroSense key (`175`) is
@@ -194,17 +204,19 @@ remapped and Win Lock works as usual. The switch is in Settings → *Advanced*.
 </details>
 
 <details>
-<summary><b>I hid the tray icon. How do I open the settings?</b></summary>
+<summary><b>Q: I hid the tray icon. How do I open the settings?</b></summary>
+<br>
 
-Open the app again (double-click `Win11KeyRemapper.exe`, or use the Start menu if
+**A:** Open the app again (double-click `Win11KeyRemapper.exe`, or use the Start menu if
 you pinned it). Instead of starting a second copy, the running one shows its
 settings window, where you can turn the icon back on.
 </details>
 
 <details>
-<summary><b>Does it connect to the internet?</b></summary>
+<summary><b>Q: Does it connect to the internet?</b></summary>
+<br>
 
-Only to check for updates: once a day it asks GitHub's API for the latest release
+**A:** Only to check for updates: once a day it asks GitHub's API for the latest release
 (nothing about you or your keys is sent). Turn off *Check for updates
 automatically* in Settings → *Updates* to stop it; *Check now* still works on demand.
 Installing an update downloads the release zip from GitHub, checks it against the
@@ -212,32 +224,47 @@ published SHA-256 sums, replaces the exe and restarts the app.
 </details>
 
 <details>
-<summary><b>The Acer Num Lock / Caps Lock pop-up still shows</b></summary>
+<summary><b>Q: The Acer Num Lock / Caps Lock pop-up still shows</b></summary>
+<br>
 
-That overlay comes from Acer Quick Access, which NitroSense needs. It's outside
+**A:** That overlay comes from Acer Quick Access, which NitroSense needs. It's outside
 this app's control.
 </details>
 
 <details>
-<summary><b>Does it work on other laptops or keyboards?</b></summary>
+<summary><b>Q: Does it work on other laptops or keyboards?</b></summary>
+<br>
 
-Yes, for any key that reaches Windows as a key press: open the settings, go to
+**A:** Yes, for any key that reaches Windows as a key press: open the settings, go to
 *Keys*, click *Change…* next to *Key* and press it. Keys handled entirely by the firmware (like
 <kbd>Fn</kbd> itself) never reach Windows and can't be remapped.
 </details>
 
 <details>
-<summary><b>How do I uninstall it?</b></summary>
+<summary><b>Q: How do I uninstall it?</b></summary>
+<br>
 
-In the settings (*General*), turn off *Start with Windows*; then *⋯ → Exit app*
-(or tray icon → *Exit*). Delete the app's folder, and
+**A:** In the settings (*General*), turn off *Start with Windows*, then click *Exit*
+under *App* (or tray icon → *Exit*). Delete the app's folder, and
 `%APPDATA%\Win11KeyRemapper` if it exists. Nothing else is installed.
 </details>
 
 <details>
-<summary><b>Where are my settings?</b></summary>
+<summary><b>Q: The notification stutters on my old or low-power PC</b></summary>
+<br>
 
-In `settings.ini` next to `Win11KeyRemapper.exe`, or in
+**A:** The frosted glass takes a capture of the screen behind the notification and
+blurs it, each time it appears. Turn off *Transparency effects* in Settings →
+*Notifications*: you get a solid card in the settings window's colors, with no
+capture at all. Or set *Show notifications* to *Only when the app starts* or
+*Never*.
+</details>
+
+<details>
+<summary><b>Q: Where are my settings?</b></summary>
+<br>
+
+**A:** In `settings.ini` next to `Win11KeyRemapper.exe`, or in
 `%APPDATA%\Win11KeyRemapper\settings.ini` when the exe's folder isn't writable
 (e.g. under Program Files). Settings → *Advanced* → *Open folder* (or tray →
 *Open settings folder*) takes you there.
@@ -245,15 +272,19 @@ In `settings.ini` next to `Win11KeyRemapper.exe`, or in
 
 <a name="run-from-source"></a>
 <details>
-<summary><b>Can I run it from source instead of the exe?</b></summary>
+<summary><b>Q: Can I run it from source instead of the exe?</b></summary>
+<br>
 
-Yes, see [Installation → B](#b-with-autohotkey-installed). Updates aren't
+**A:** Yes, see [Installation → B](#b-with-autohotkey-installed). Updates aren't
 installed automatically from source: the app tells you when there's a new version
 and opens the release page.
 </details>
 
 <details>
-<summary><b>How it works</b></summary>
+<summary><b>Q: How does it work?</b></summary>
+<br>
+
+**A:**
 
 - The NitroSense key reports virtual-key code `0xFF` ("no mapping"), which
   AutoHotkey hotkeys can't target reliably. The app installs its own low-level
@@ -267,10 +298,10 @@ and opens the release page.
   also reinstalled after unlocking and after sleep.
 - Key-downs that arrive while the key is still held (auto-repeat) are ignored for
   toggles, so holding the key toggles once.
-- The settings window is standard Win32 with custom-drawn cards, keycaps,
-  switches and sidebar, aware of each monitor's scale; the notification is drawn
-  once with GDI+ and then only moved and faded by the window manager, so it costs
-  next to nothing.
+- The settings window is standard Win32 with custom-drawn cards, buttons,
+  keycaps, switches and sidebar, aware of each monitor's scale; the notification
+  is drawn once with GDI+ and then only moved and faded by the window manager, so
+  it costs next to nothing.
 
 More details in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 </details>

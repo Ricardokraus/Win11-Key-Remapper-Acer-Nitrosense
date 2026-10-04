@@ -91,11 +91,15 @@ Eq(c.toastWhen, "Never", "ToastWhen=never")
 Eq(c.theme, "Dark", "Theme normalized")
 Eq(c.toastPosition " " c.toastAnim " " c.trayIcon " " c.checkUpdates, "BottomRight Slide 0 1", "toast/tray/update settings")
 Eq(LoadSettings(SETTINGS_PATH).theme, "System", "default Theme")
+c := DefaultSettings(), c.toastGlass := false
+Check(DefaultSettings().toastGlass, "notifications: glass by default")
+WriteSettings(SETTINGS_PATH, c)
+Eq(LoadSettings(SETTINGS_PATH).toastGlass, 0, "ToastTransparency=0 round trip")
 
 c := LoadSettings(A_ScriptDir "\..\settings.example.ini"), d := DefaultSettings()
 for key in ["sourceVK", "sourceSC", "matchSC", "mode", "targetVK", "targetSC", "launchEnabled"
           , "launchVK", "launchSC", "launchAnySide", "launchPath", "toastWhen", "toastPosition"
-          , "toastAnim", "trayIcon", "checkUpdates", "theme"]
+          , "toastAnim", "toastGlass", "trayIcon", "checkUpdates", "theme"]
     Eq(c.%key% "", d.%key% "", "settings.example.ini matches defaults: " key)
 Eq(JoinMods(c.targetMods) "|" JoinMods(c.launchMods), JoinMods(d.targetMods) "|" JoinMods(d.launchMods), "settings.example.ini mods")
 
@@ -129,6 +133,12 @@ Eq(P("BottomLeft", "None"), "-10,610 -10,610", "toast none stays in place")
 c := DefaultSettings(), c.toastPosition := "BottomLeft", c.toastAnim := "Fade"
 Reset(c)
 Eq(GTCFG.position " " GTCFG.animation, "BottomLeft Fade", "toast style applied")
+c := DefaultSettings(), c.toastGlass := false, c.theme := "Dark"
+Reset(c)
+Check(!GTCFG.glass && GTCFG.solidTheme = "dark" && !GT_SolidLight(), "solid notification in the app's dark colors")
+c.theme := "System"
+Reset(c)
+Eq(GTCFG.solidTheme, "", "solid notification follows Windows with Theme=System")
 Reset(DefaultSettings())
 
 Check(VersionNewer("v0.3.0", "0.2.0") && VersionNewer("v1.0.0", "0.9.9") && VersionNewer("0.2.10", "0.2.9"), "newer versions")
@@ -308,7 +318,7 @@ Check(UI.srcBtn.Visible, "gui: back to Keys")
 
 DRAFT.toastPosition := "BottomRight", DRAFT.toastAnim := "Fade"
 PreviewToast()
-Check(InStr(TOASTS[TOASTS.Length], "Bottom right · Fade in") && GTCFG.position = "TopCenter", "gui: test notification uses the draft, then restores")
+Check(InStr(TOASTS[TOASTS.Length], "Bottom right · Fade in · Glass") && GTCFG.position = "TopCenter", "gui: test notification uses the draft, then restores")
 CommitDraft()
 Eq(UI.toastPos.Value " " UI.toastAnim.Value " " CFG.toastPosition, "5 2 BottomRight", "gui: notification style applied")
 UPD.state := "available", UPD.latest := "v9.9.9"
@@ -376,12 +386,60 @@ UI.toastWhen.Value := 2
 DRAFT.toastWhen := TOAST_WHENS[2], CommitDraft()
 Eq(LoadSettings(SETTINGS_PATH).toastWhen, "Startup", "gui: notifications only at startup")
 
+FlipSwitch("toastGlass")
+Check(!CFG.toastGlass && !GTCFG.glass && UI.tgState["toastGlass"] = 0, "gui: transparency effects off")
+FlipSwitch("toastGlass")
+
+; Widgets: mouse down/up like a button, hand cursor, danger buttons, About links
+Check(!UI.HasOwnProp("more"), "gui: no ⋯ menu")
+hw := UI.srcBtn.Hwnd
+OnSettingsMouseDown(0, 0x00050005, 0x201, hw)
+Check(UI.srcBtn.press, "gui: button pressed on mouse down")
+Eq(CAP.active, false, "gui: but nothing happens yet")
+OnSettingsMouseUp(0, 0x00050005, 0x202, hw)
+Critical "Off"
+Sleep 30
+Critical
+Check(!UI.srcBtn.press && CAP.active && CAP.target = "source", "gui: action on mouse up over the button")
+CaptureCancel()
+OnSettingsMouseDown(0, 0x00050005, 0x201, hw)
+OnSettingsMouseUp(0, 0x0005FFFB, 0x202, hw)          ; released outside (x = -5)
+Critical "Off"
+Sleep 30
+Critical
+Check(!CAP.active, "gui: released outside does nothing")
+Eq(OnSettingsSetCursor(hw, 0x2000001, 0x20, UI.gui.Hwnd), 1, "gui: hand cursor over a button")
+UI.auto.Enabled := false
+Eq(OnSettingsSetCursor(UI.auto.Hwnd, 0x2000001, 0x20, UI.gui.Hwnd), "", "gui: normal cursor over a disabled button")
+UI.auto.Enabled := true
+Eq(OnSettingsSetCursor(UI.mode.Hwnd, 0x2000001, 0x20, UI.gui.Hwnd), 1, "gui: hand cursor over a drop-down list")
+danger := []
+for hwnd, wd in UI.widgets
+    if (wd.kind = "button" && wd.variant = "danger")
+        danger.Push(wd.Text)
+Eq(danger.Length, 3, "gui: Restart, Exit and Reset are danger buttons")
+nLinks := 0, nEdits := 0
+for item in UI.items
+    nLinks += item.page = "about" && UI.widgets.Has(item.ctl.Hwnd) && UI.widgets[item.ctl.Hwnd].kind = "link"
+  , nEdits += item.ctl.Type = "Edit"
+Check(nLinks = LINKS.Length && !nEdits && LINKS[1][2] = "#faq", "gui: About links, FAQ on GitHub, no text box")
+FlipSwitch("remapping")
+Check(UI.anims.Has(UI.tg["remapping"]) || !AnimationsOn() || !UI.tg["remapping"].Visible, "gui: the switch slides")
+FlipSwitch("remapping")
+
 UI.dpi := 120, UI.k := 1.25
 ApplyLayout()
 ctx := PMv2()                           ; read sizes like the window sees them (no DPI virtualization)
 UI.srcBtn.GetPos(, , &bw)
 PMv2(ctx)
 Eq(bw, 120, "gui: relaid out for a 125 % monitor")
+Check(UI.laidOut["general"] != 120, "gui: hidden sections are laid out later")
+ShowPage("general")
+ctx := PMv2()
+UI.theme.GetPos(, , &lw)
+PMv2(ctx)
+Check(UI.laidOut["general"] = 120 && lw = 200, "gui: laid out when shown  (" lw ")")
+ShowPage("keys")
 
 newTheme := UI.themeName = "dark" ? "Light" : "Dark"
 DRAFT.theme := newTheme

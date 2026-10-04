@@ -119,38 +119,68 @@ Rules:
 - **Changes apply at once** (`CommitDraft`): the window edits `DRAFT`; each change
   is validated and, if complete, copied to `CFG`, saved and applied. If something
   blocks it (e.g. *Press another key* without a key), the row says so and the
-  previous settings stay active. App actions live in the ⋯ menu.
-- **Drawing**: standard Win32 controls can't draw rounded cards, keycaps,
-  switches or the sidebar, so those are GDI+ bitmaps (reusing the toast
-  library's helpers): the cards of the current section are one bitmap painted on
-  `WM_ERASEBKGND`; key views, switches and sidebar entries are Picture controls.
+  previous settings stay active. Restart and Exit are red buttons in *General*
+  (no confirmation); Reset in *Advanced* asks first, because it loses settings.
+- **Drawing**: standard Win32 controls can't draw rounded cards, buttons with
+  states, keycaps, switches or the sidebar, so those are GDI+ bitmaps (reusing the
+  toast library's helpers). The cards of the current section are one bitmap
+  painted on `WM_ERASEBKGND`. Everything clickable is a **widget** (`UiWidget`):
+  a Picture control (`SS_BITMAP | SS_NOTIFY`) redrawn by `RenderWidget` for each
+  state: buttons (normal, `danger`, `accent`), switches, sidebar entries, keycap
+  views, the About card and its link rows. Only drop-down lists are native.
   Bitmaps are opaque (drawn on their background color), so ClearType works.
   Icons come from *Segoe Fluent Icons* (Windows 11) or *Segoe MDL2 Assets*
   (Windows 10).
+- **Widgets and the mouse**: `WM_LBUTTONDOWN` on a widget presses it and captures
+  the mouse; `WM_LBUTTONUP` releases it and runs its action only if the mouse is
+  still over it (`InClient`), from a timer, not inside the message handler, like
+  a real button. `WM_MOUSEMOVE` sets the hovered widget (`SetHot`), and a 50 ms
+  timer (`CheckHot`) notices when the mouse left the window or a press got lost.
+  `WM_SETCURSOR` reaches the window for its child controls: it returns the hand
+  cursor for enabled widgets, lists and ⓘ icons. A widget's bitmap is set with
+  `STM_SETIMAGE` directly (3x faster than `.Value`); the static control keeps its
+  own copy of a bitmap with alpha, so whatever isn't in use is freed (`Draw`,
+  `Free`).
+- **Animations**: a widget animates its `pos` (`Animate`, `AnimTick`, ease-out
+  with overshoot): a switch's knob slides (and the color fades), the selected
+  section's accent bar grows in. Buttons have a darker "lip" and sink onto it while
+  pressed; keycaps too; the switch knob grows on hover and stretches while pressed.
+  A frame costs under 1 ms. Skipped when Windows' animation effects are off
+  (`SPI_GETCLIENTAREAANIMATION`).
+- **No flicker**: changing many controls at once (switching sections, a DPI change)
+  happens inside `Freeze()`, which stops painting with `WM_SETREDRAW` and repaints
+  everything once with `RedrawWindow`. Only while the window is visible:
+  `WM_SETREDRAW` on a hidden window would show it. Controls of the other sections
+  are created hidden, and a hidden widget is only marked `dirty` and drawn when its
+  section is shown. Text colors go through `SetColor`, which remembers them, so a
+  DPI change can re-apply fonts without losing the color.
 - **Per-monitor DPI**: the app is system-DPI-aware, so on a monitor with another
   scale Windows stretched the window (blurry) and misplaced the menus. The
   settings window is created in a **Per-Monitor v2** thread context with
   `-DPIScale`; every control goes through `Place()`, which scales positions
   (`Px`) and font sizes (`FontPts`: AutoHotkey sizes fonts for the main
   monitor's DPI, so points are converted) and remembers the control. On
-  `WM_DPICHANGED` (`OnSettingsDpiChanged`) everything is moved, re-fonted and
-  redrawn for the new scale. A `WM_DPICHANGED` for the DPI the window already uses
-  (it's created on the main monitor, then shown on another) is ignored, or the
-  window would shrink. The tray menu, the ⋯ menu and the ⓘ tooltips are shown
-  with the thread temporarily in PMv2 (`PMv2()`), at physical coordinates.
+  `WM_DPICHANGED` (`OnSettingsDpiChanged`) only the sidebar and the visible
+  section are laid out again (`LayoutPage`, one `DeferWindowPos` batch); the other
+  sections when they're shown (`UI.laidOut`). Then the window takes the size
+  Windows suggests and is painted once. Measured: ~150 ms down to ~40 ms; switching
+  sections ~55 ms with flicker down to ~20 ms in one paint. A `WM_DPICHANGED` for
+  the DPI the window already uses (it's created on the main monitor, then shown on
+  another) is ignored, or the window would shrink. The tray menu and the ⓘ
+  tooltips are shown with the thread temporarily in PMv2 (`PMv2()`), at physical
+  coordinates.
 - **Reading positions**: a system-aware thread asking for the position of a PMv2
   window gets coordinates "virtualized" for its own DPI. Always switch to PMv2
   (`PMv2()`) before `WinGetPos`/`GetPos` on the settings window.
 - **Light/dark**: `Theme=System` reads `AppsUseLightTheme`. Dark mode uses the
   undocumented but widely used uxtheme exports (ordinals 133
   `AllowDarkModeForWindow`, 135 `SetPreferredAppMode`, 136 `FlushMenuThemes`) for
-  the menus and controls, `SetWindowTheme` with `DarkMode_Explorer` (buttons,
-  scrollbars) and `DarkMode_CFD` (drop-down lists), `WM_CTLCOLORLISTBOX` for open
-  lists, `WM_CTLCOLORBTN`/`WM_CTLCOLORSTATIC` so buttons and icons on cards get
-  the card color, and `DwmSetWindowAttribute` 20 (dark title bar) / 35 (caption
-  color, Windows 11). When the theme changes, the window is rebuilt in place.
-- Switches are pictures: clickable, but not reachable with Tab. Buttons, lists,
-  Esc and the sidebar (mouse) work as usual.
+  the menus and drop-down lists (`SetWindowTheme` with `DarkMode_CFD`),
+  `WM_CTLCOLORLISTBOX` for open lists, and `DwmSetWindowAttribute` 20 (dark title
+  bar) / 35 (caption color, Windows 11). Widgets use the colors in `THEMES`. When
+  the theme changes, the window is rebuilt in place.
+- Widgets are clickable but not reachable with Tab; lists and Esc work as usual.
+
 ## One copy at a time, restart, hidden tray icon
 
 - `#SingleInstance Off`: at startup the app looks for a hidden AutoHotkey main
@@ -185,7 +215,10 @@ Rules:
 
 `GTCFG.position` (`TopCenter`, `TopRight`, `TopLeft`, `BottomCenter`,
 `BottomRight`, `BottomLeft`) and `GTCFG.animation` (`Slide`, `Fade`, `None`) are
-read when each toast is built. `GT_Placement` computes the resting position and
+and `GTCFG.glass` (`ToastTransparency`) are read when each toast is built. Without
+glass the card is solid, in the settings window's colors (`GTCFG.solidTheme`:
+the app's theme, or Windows' app mode for *System*), and nothing is captured.
+`GT_Placement` computes the resting position and
 where the toast comes from: *Slide* enters from the top edge (top center), rises a
 little (bottom center, so it doesn't cross the taskbar), or comes in from the side
 (left/right positions); *Fade* and *None* stay in place. The glass capture is
@@ -258,7 +291,11 @@ draft's style and restores `GTCFG` afterwards.
 15. **PowerShell `Start-Process -PassThru`**: read `.Handle` right away and call
     `WaitForExit()` without a timeout at the end, or `ExitCode` stays empty.
 16. **Tests must never show a dialog**: `tests.ahk` sets `OnError` to print the
-    error and exit, and `run-tests.ps1` kills the run after 90 s.
+    error and exit, and `run-tests.ps1` kills the run after 90 s. Never start
+    `AutoHotkey64.exe` without a script either: it shows "Script file not found".
+17. **Functions and variables share one namespace**: a local named like a function
+    (`animate` next to an `Animate()` function) hides it in that function. Same for
+    globals at the top level of a script (`links` *is* `LINKS`).
 
 ## The glass toast
 
@@ -308,12 +345,18 @@ The tests cover the logic; this needs real keys:
 - [ ] `Mode=Key`: holding the key repeats the target; Shift+key gives Shift+target.
 - [ ] Changes apply at once without restarting; incomplete ones (no key to send) show a red hint.
 - [ ] Every section of the settings window; changes apply at once; the ⓘ tooltips.
-- [ ] Move the settings window to the other monitor: it stays sharp and keeps its layout.
+- [ ] Switching sections doesn't flicker; the accent bar grows in.
+- [ ] Hover and press: buttons sink onto their lip, switches slide, the hand cursor
+  shows over everything clickable; releasing outside a button does nothing.
+- [ ] Move the settings window to the other monitor and back while dragging: it
+  stays sharp, keeps its layout and doesn't stall.
 - [ ] Tray menu on each monitor: opens at the icon, at the right size.
-- [ ] ⋯ menu: open folder, report a bug, GitHub, restart, exit.
+- [ ] *General*: *Restart* and *Exit* (red, no confirmation); *About*: the card
+  opens the GitHub page, the rows open the FAQ and the issue forms.
 - [ ] Light, dark and *System* themes; switching Windows' mode with the window open.
 - [ ] Every notification position and animation, with *Show a test*; *Show notifications*:
-  Always / Only when the app starts / Never (lock and unlock to check).
+  Always / Only when the app starts / Never (lock and unlock to check);
+  *Transparency effects* off: a solid card, light or dark like the window.
 - [ ] Pause / resume and *Restart* from the tray.
 - [ ] Hide the tray icon, open the app again: the settings appear; turn it back on.
 - [ ] *Check now* (up to date / update available); *Install* on the exe.

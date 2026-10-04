@@ -67,43 +67,34 @@ TOAST_WHEN_LABELS := ["Always", "Only when the app starts", "Never"]
 ; Settings window sections: id, title, Segoe Fluent Icons / MDL2 glyph
 PAGES := [["general", "General", 0xE713], ["keys", "Keys", 0xE765], ["notifications", "Notifications", 0xEA8F]
         , ["updates", "Updates", 0xE895], ["advanced", "Advanced", 0xE90F], ["about", "About", 0xE946]]
-LINKS := [["Report a bug", "/issues/new?template=bug_report.yml"]
-        , ["Suggest a feature", "/issues/new?template=feature_request.yml"]
-        , ["Tell us it works on your laptop", "/issues/new?template=works_on_my_laptop.yml"]
-        , ["Ask a question", "/issues/new?template=question.yml"]
-        , ["Project page on GitHub", ""]]
-FAQ_TEXT := "
-(
-My antivirus or SmartScreen warns about the exe
-Apps made with AutoHotkey are often flagged by heuristics, and this one watches the keyboard like a keylogger would. It's a false positive: the exe is built by GitHub Actions from the public source, and each release lists SHA-256 sums. For SmartScreen, click More info > Run anyway once.
+; About > Help and feedback: title, path on the GitHub page, glyph
+LINKS := [["Frequently asked questions", "#faq", 0xE897]
+        , ["Report a bug", "/issues/new?template=bug_report.yml", 0xEBE8]
+        , ["Suggest a feature", "/issues/new?template=feature_request.yml", 0xEA80]
+        , ["Tell us it works on your laptop", "/issues/new?template=works_on_my_laptop.yml", 0xE7F8]
+        , ["Ask a question", "/issues/new?template=question.yml", 0xE8BD]]
 
-It doesn't work while Task Manager is in front
-Windows doesn't pass keys to normal apps while an admin app is focused. The app runs without admin rights on purpose, so it can start silently at logon.
-
-I hid the tray icon. How do I get here again?
-Open the app again: the running copy shows this window instead of starting a second one.
-
-Does it connect to the internet?
-Only to check GitHub for updates (Updates section), and to download one when you install it. Nothing about you or your keys is sent.
-
-Does it work on other laptops?
-Yes, for any key Windows can see: Keys > Change... next to Key, then press it. Keys handled by the firmware (like Fn) can't be remapped.
-
-How do I uninstall it?
-Turn off Start with Windows, then ... > Exit app, and delete the app's folder (and %APPDATA%\Win11KeyRemapper if it exists).
-)"
-
-; Settings window colors (RGB). "dim" is used for disabled rows.
-THEMES := Map("light", {dark: false, win: 0xF3F3F3, card: 0xFFFFFF, border: 0xE3E3E3, navSel: 0xE6E6E6
+; Settings window colors (RGB). "dim" is used for disabled rows; nav* are
+; sidebar entries, row* the clickable rows on a card, btn* the buttons (the
+; lip is the darker edge under a button, gone while it's pressed).
+THEMES := Map("light", {dark: false, win: 0xF3F3F3, card: 0xFFFFFF, border: 0xE3E3E3
+                      , navSel: 0xE6E6E6, navHover: 0xEBEBEB, navPress: 0xE0E0E0
+                      , rowHover: 0xF5F5F5, rowPress: 0xEEEEEE
                       , text: 0x1A1A1A, sub: 0x616161, dim: 0xA8A8A8
                       , on: 0x1E9E48, knobOn: 0xFFFFFF, off: 0x8A8A8A, knobOff: 0x616161
                       , keyFace: 0xFAFAFA, keyEdge: 0xCFCFCF, keyShade: 0xC9C9C9, keyText: 0x1A1A1A
-                      , accent: 0x1E9E48, ok: 0x13803A, warn: 0xC42B1C}
-            , "dark", {dark: true, win: 0x202020, card: 0x2B2B2B, border: 0x3A3A3A, navSel: 0x2D2D2D
+                      , btnFace: 0xFDFDFD, btnHover: 0xF4F4F4, btnEdge: 0xD5D5D5, btnLip: 0xC2C2C2
+                      , danger: 0xC42B1C, dangerFill: 0xC42B1C, dangerLip: 0x8A1E14, onDanger: 0xFFFFFF
+                      , accent: 0x1E9E48, accentLip: 0x146B31, onAccent: 0xFFFFFF, ok: 0x13803A, warn: 0xC42B1C}
+            , "dark", {dark: true, win: 0x202020, card: 0x2B2B2B, border: 0x3A3A3A
+                      , navSel: 0x2D2D2D, navHover: 0x292929, navPress: 0x262626
+                      , rowHover: 0x323232, rowPress: 0x2F2F2F
                       , text: 0xF3F3F3, sub: 0xABABAB, dim: 0x6B6B6B
                       , on: 0x30D158, knobOn: 0x0F2A17, off: 0x9E9E9E, knobOff: 0xCFCFCF
                       , keyFace: 0x3D3D3D, keyEdge: 0x505050, keyShade: 0x171717, keyText: 0xF3F3F3
-                      , accent: 0x30D158, ok: 0x6CCB5F, warn: 0xFF99A4})
+                      , btnFace: 0x383838, btnHover: 0x414141, btnEdge: 0x474747, btnLip: 0x1A1A1A
+                      , danger: 0xFF7B72, dangerFill: 0xDA3633, dangerLip: 0x8E1F1B, onDanger: 0xFFFFFF
+                      , accent: 0x30D158, accentLip: 0x1E8A3A, onAccent: 0x0F2A17, ok: 0x6CCB5F, warn: 0xFF99A4})
 
 ; Side-specific modifiers, in display order
 MOD_ORDER  := ["LCtrl", "RCtrl", "LAlt", "RAlt", "LShift", "RShift", "LWin", "RWin"]
@@ -133,6 +124,7 @@ INI_HEADER := "
 ; ToastWhen: Always (startup, unlock, screen on) | Startup | Never
 ; ToastPosition: TopCenter | TopRight | TopLeft | BottomCenter | BottomRight | BottomLeft
 ; ToastAnimation: Slide | Fade | None
+; ToastTransparency: 1 = frosted glass, 0 = solid (less work for older PCs)
 ; Theme (settings window and tray menu): System | Light | Dark
 
 )"
@@ -218,7 +210,7 @@ Main() {
         SetAutostart(true)                  ; on by default; the switch is right there to undo it
         UpdateTray()
         ShowSettings("keys")
-        SetTimer(() => GlassToast("Welcome to " APP.short, "Choose what the key should do and click Save"), -700)
+        SetTimer(() => GlassToast("Welcome to " APP.short, "Choose what the key should do: changes apply at once"), -700)
     } else if args.updated
         SetTimer(() => GlassToast("Updated to version " APP.version, "See what's new on the GitHub release page"), -2000)
     else if (CFG.toastWhen != "Never")
@@ -300,7 +292,7 @@ DefaultSettings() {
           , targetMods: [], targetVK: 0, targetSC: 0
           , launchEnabled: true, launchMods: ["RCtrl"], launchVK: 0xFF, launchSC: 0x175
           , launchAnySide: false, launchPath: "auto"
-          , toastWhen: "Always", toastPosition: "TopCenter", toastAnim: "Slide"
+          , toastWhen: "Always", toastPosition: "TopCenter", toastAnim: "Slide", toastGlass: true
           , trayIcon: true, checkUpdates: true, theme: "System"}
 }
 
@@ -355,6 +347,7 @@ LoadSettings(path) {
           , toastWhen: IniChoice(path, "General", "ToastWhen", TOAST_WHENS, d.toastWhen)
           , toastPosition: IniChoice(path, "General", "ToastPosition", TOAST_POSITIONS, d.toastPosition)
           , toastAnim: IniChoice(path, "General", "ToastAnimation", TOAST_ANIMS, d.toastAnim)
+          , toastGlass: IniBool(path, "General", "ToastTransparency", d.toastGlass)
           , trayIcon: IniBool(path, "General", "TrayIcon", d.trayIcon)
           , checkUpdates: IniBool(path, "General", "CheckUpdates", d.checkUpdates)
           , theme: IniChoice(path, "General", "Theme", THEME_PREFS, d.theme)}
@@ -379,6 +372,7 @@ WriteSettings(path, c) {
     IniWrite(c.toastWhen, path, "General", "ToastWhen")
     IniWrite(c.toastPosition, path, "General", "ToastPosition")
     IniWrite(c.toastAnim, path, "General", "ToastAnimation")
+    IniWrite(c.toastGlass ? 1 : 0, path, "General", "ToastTransparency")
     IniWrite(c.trayIcon ? 1 : 0, path, "General", "TrayIcon")
     IniWrite(c.checkUpdates ? 1 : 0, path, "General", "CheckUpdates")
     IniWrite(c.theme, path, "General", "Theme")
@@ -475,6 +469,7 @@ ApplySettings() {
         r.launchMods[c.launchAnySide ? MOD_FAMILY[name] : name] := true
     RT := r
     GTCFG.position := c.toastPosition, GTCFG.animation := c.toastAnim
+    GTCFG.glass := c.toastGlass, GTCFG.solidTheme := c.theme = "System" ? "" : StrLower(c.theme)
     A_IconHidden := !c.trayIcon
     UpdateTray()
 }
@@ -922,7 +917,7 @@ BuildTray() {
     tray.Add()
     tray.Add(UPD.trayItem, (*) => UpdateAction())
     tray.Add("Open settings folder", (*) => OpenSettingsFolder())
-    tray.Add("About / GitHub", (*) => ShowAbout())
+    tray.Add("About", (*) => ShowSettings("about"))
     tray.Add()
     tray.Add("Restart", (*) => RestartApp())
     tray.Add("Exit", (*) => ExitApp())
@@ -1210,15 +1205,6 @@ Sha256File(path) {                      ; lowercase hex, "" if unreadable
     return out
 }
 
-ShowAbout() {
-    text := APP.name " " APP.version "`n(NitroSense Key Remapper)`n`n"
-          . "Remaps the Acer NitroSense key, or any other key, on Windows.`n"
-          . "Free and open source (MIT License).`n`n"
-          . "Open the GitHub page?"
-    if (MsgBox(text, "About " APP.short, "YesNo Iconi") = "Yes")
-        Run(APP.repo)
-}
-
 ; ============================================================================
 ; Settings window
 ; ============================================================================
@@ -1227,15 +1213,20 @@ ShowAbout() {
 ; applied and saved at once; if something is missing (e.g. the key to send),
 ; the row says so and the previous setting stays active.
 ;
-; Standard Win32 controls can't draw rounded cards, keycaps, switches or the
-; sidebar, so those are drawn with GDI+ into bitmaps: the cards are painted
-; on WM_ERASEBKGND, everything else is a Picture control.
+; Standard Win32 controls can't draw rounded cards, buttons with states,
+; keycaps, switches or the sidebar, so those are drawn with GDI+: the cards
+; on WM_ERASEBKGND, everything else as widgets (UiWidget), Picture controls
+; redrawn for each state: hover, pressed, disabled, animating. Mouse input
+; for widgets is handled here, like a normal button: pressed on button-down,
+; action on button-up over it.
 ;
 ; The window is Per-Monitor DPI aware (v2) while the rest of the app is
 ; system-aware: it's created in a PMv2 thread context with -DPIScale,
 ; positions and font sizes are scaled by hand (Px, FontPts) and every
-; control is remembered in UI.items, so on WM_DPICHANGED everything is laid
-; out again for the new monitor and stays sharp.
+; control is remembered in UI.items. On WM_DPICHANGED only the visible
+; section is laid out again (the others when they're opened), in one batch
+; and with painting frozen, so moving the window to another monitor stays
+; fluid. Switching sections is frozen too: one repaint, no flicker.
 
 ShowSettings(page := "") {
     global DRAFT
@@ -1255,11 +1246,13 @@ BuildSettings(page, posX := "", posY := "") {
     static hooked := false
     if !hooked {
         OnMessage(0x14, OnSettingsErase)            ; WM_ERASEBKGND: paint the cards
-        OnMessage(0x135, OnSettingsCtlColorBtn)     ; WM_CTLCOLORBTN: button corners
         OnMessage(0x134, OnSettingsCtlColorList)    ; WM_CTLCOLORLISTBOX: dark drop-down lists
         OnMessage(0x2E0, OnSettingsDpiChanged)      ; WM_DPICHANGED: moved to another monitor
-        OnMessage(0x200, OnSettingsMouseMove)       ; WM_MOUSEMOVE: ⓘ tooltips
-        OnMessage(0x138, OnSettingsCtlColorStatic)  ; WM_CTLCOLORSTATIC: icons on cards
+        OnMessage(0x20, OnSettingsSetCursor)        ; WM_SETCURSOR: hand over what can be clicked
+        OnMessage(0x200, OnSettingsMouseMove)       ; WM_MOUSEMOVE: hover, ⓘ tooltips
+        OnMessage(0x201, OnSettingsMouseDown)       ; WM_LBUTTONDOWN
+        OnMessage(0x203, OnSettingsMouseDown)       ; WM_LBUTTONDBLCLK: a fast second click
+        OnMessage(0x202, OnSettingsMouseUp)         ; WM_LBUTTONUP
         hooked := true
     }
     old := PMv2()
@@ -1273,14 +1266,17 @@ BuildSettings(page, posX := "", posY := "") {
     UI.themeName := ThemeName(DRAFT.theme)
     th := UI.th := THEMES[UI.themeName]
     UI.tok := GdipStart()
+    UI.fam := Map(), UI.cardIcon := 0, UI.cardIconSize := 0
+    UI.iconFont := FontFamily("Segoe Fluent Icons") ? "Segoe Fluent Icons" : "Segoe MDL2 Assets"
     UI.page := page, UI.problem := "", UI.problemWhere := "", UI.tipFor := 0, UI.bgBmp := 0
-    UI.items := [], UI.itemOf := Map(), UI.icons := [], UI.groups := Map(), UI.nav := Map()
-    UI.keyText := Map(), UI.tg := Map(), UI.tgState := Map(), UI.cardBtns := Map(), UI.infoTips := Map(), UI.cardStatics := Map()
+    UI.items := [], UI.itemOf := Map(), UI.icons := [], UI.groups := Map(), UI.nav := Map(), UI.laidOut := Map()
+    UI.keyText := Map(), UI.tg := Map(), UI.tgState := Map(), UI.infoTips := Map(), UI.hand := Map()
+    UI.widgets := Map(), UI.anims := Map(), UI.hot := 0, UI.frozen := 0, UI.paintOff := false
     UI.kvW := SL.btnX - 10 - SL.kvX
-    UI.brushWin := DllCall("CreateSolidBrush", "uint", Bgr(th.win), "ptr")
     UI.brushCard := DllCall("CreateSolidBrush", "uint", Bgr(th.card), "ptr")
     for p in PAGES
-        UI.groups[p[1]] := []
+        UI.groups[p[1]] := [], UI.laidOut[p[1]] := UI.dpi
+    UI.laidOut[""] := UI.dpi
 
     g := Gui("-MinimizeBox -MaximizeBox -DPIScale", APP.name)
     UI.gui := g
@@ -1290,20 +1286,15 @@ BuildSettings(page, posX := "", posY := "") {
     g.OnEvent("Escape", CloseSettings)
 
     ; Sidebar: app name, status, sections
-    AddIcon("", 20, 16, 28)
+    AddIcon(20, 16, 28)
     Place("Text", "", 56, 14, 150, 22, "0x80 Background" Hex6(th.win), APP.short, 12, "w600", th.text)
     UI.status := Place("Text", "", 56, 36, 150, 16, "0x80 Background" Hex6(th.win), "", 8.5, "w400", th.ok)
-    for i, p in PAGES {
-        pic := Place("Picture", "", 8, 72 + (i - 1) * 40, SL.side - 16, 36)
-        pic.OnEvent("Click", ShowPage.Bind(p[1]))
-        UI.nav[p[1]] := pic
-    }
+    for i, p in PAGES
+        UI.nav[p[1]] := NewWidget("nav", "", 8, 72 + (i - 1) * 40, SL.side - 16, 36
+                                , {page: p[1], label: p[2], glyph: p[3], pos: 1}).OnEvent("Click", ShowPage.Bind(p[1]))
 
-    ; Content header: section title and the ⋯ menu
-    UI.title := Place("Text", "", SL.cx, 14, 400, 38, "0x80 Background" Hex6(th.win), "", 20, "w600", th.text)
-    UI.more := NewButton("", SL.W - 24 - 44, 18, 44, Chr(0xE712), false, 11, "Segoe MDL2 Assets|Segoe Fluent Icons")
-    UI.more.OnEvent("Click", ShowMoreMenu)
-
+    ; Content: section title, then the section's cards
+    UI.title := Place("Text", "", SL.cx, 14, SL.cw, 38, "0x80 Background" Hex6(th.win), "", 20, "w600", th.text)
     BuildGeneralPage()
     BuildKeysPage()
     BuildNotificationsPage()
@@ -1338,6 +1329,14 @@ BuildGeneralPage() {
     y := Row(grp, 64)
     RowText("general", y, 64, "Theme", "Colors of this window and of the tray menu.", 330)
     UI.theme := NewList("general", SL.rx - 160, y + 17, 160, THEME_PREFS, OnThemeChange)
+
+    grp := Group("general", grp.y + grp.h + 16, "App")
+    y := Row(grp, 64)
+    RowText("general", y, 64, "Restart the app", "Closes it and opens it again, e.g. after editing settings.ini.", 420)
+    NewButton("general", SL.rx - 110, y + 16, 110, "Restart", "danger").OnEvent("Click", (*) => RestartApp())
+    y := Row(grp, 64)
+    RowText("general", y, 64, "Exit the app", "Keys work as usual until you open it again.", 420)
+    NewButton("general", SL.rx - 110, y + 16, 110, "Exit", "danger").OnEvent("Click", (*) => ExitApp())
 }
 
 BuildKeysPage() {
@@ -1347,7 +1346,7 @@ BuildKeysPage() {
     r := RowText("keys", y, 64, "Key", "", SL.kvX - 10 - x)
     UI.srcDesc := r.desc
     UI.srcKeys := NewKeyView("source", "keys", SL.kvX, y + 15)
-    UI.srcBtn := NewButton("keys", SL.btnX, y + 17, 96, "Change…")
+    UI.srcBtn := NewButton("keys", SL.btnX, y + 16, 96, "Change…")
     UI.srcBtn.OnEvent("Click", (*) => CaptureToggle("source"))
     y := Row(grp, 92)
     RowText("keys", y, 92, "Action", "", SL.kvX - 10 - x, "", 17)
@@ -1357,7 +1356,7 @@ BuildKeysPage() {
     r := RowText("keys", y, 64, "Sends", "What to press instead.", SL.kvX - 10 - x)
     UI.targetTitle := r.title, UI.targetDesc := r.desc
     UI.targetKeys := NewKeyView("target", "keys", SL.kvX, y + 15)
-    UI.targetBtn := NewButton("keys", SL.btnX, y + 17, 96, "Change…")
+    UI.targetBtn := NewButton("keys", SL.btnX, y + 16, 96, "Change…")
     UI.targetBtn.OnEvent("Click", (*) => CaptureToggle("target"))
 
     grp := Group("keys", grp.y + grp.h + 16, "NitroSense shortcut")
@@ -1368,7 +1367,7 @@ BuildKeysPage() {
     r := RowText("keys", y, 64, "Shortcut", "", SL.kvX - 10 - x)
     UI.launchTitle := r.title, UI.launchDesc := r.desc
     UI.launchKeys := NewKeyView("launch", "keys", SL.kvX, y + 15)
-    UI.launchBtn := NewButton("keys", SL.btnX, y + 17, 96, "Change…")
+    UI.launchBtn := NewButton("keys", SL.btnX, y + 16, 96, "Change…")
     UI.launchBtn.OnEvent("Click", (*) => CaptureToggle("launch"))
     y := Row(grp, 52)
     r := RowText("keys", y, 52, "Distinguish left and right modifiers", "", SL.rx - 80 - x
@@ -1379,8 +1378,8 @@ BuildKeysPage() {
     y := Row(grp, 64)
     r := RowText("keys", y, 64, "App to open", "", SL.btnX - 82 - x)
     UI.appTitle := r.title, UI.appStatus := r.desc
-    UI.auto := NewButton("keys", SL.btnX - 72, y + 17, 64, "Auto")
-    UI.browse := NewButton("keys", SL.btnX, y + 17, 96, "Browse…")
+    UI.auto := NewButton("keys", SL.btnX - 72, y + 16, 64, "Auto")
+    UI.browse := NewButton("keys", SL.btnX, y + 16, 96, "Browse…")
     UI.auto.OnEvent("Click", AutoApp)
     UI.browse.OnEvent("Click", BrowseApp)
 }
@@ -1388,7 +1387,7 @@ BuildKeysPage() {
 BuildNotificationsPage() {
     grp := Group("notifications", 70)
     y := Row(grp, 64)
-    RowText("notifications", y, 64, "Show notifications", "Always: at startup, after unlocking and when the screen turns on.", 290)
+    RowText("notifications", y, 64, "Show notifications", "Always = at startup, after unlocking and on screen wake.", 300)
     UI.toastWhen := NewList("notifications", SL.rx - 220, y + 17, 220, TOAST_WHEN_LABELS
                           , (ctl, *) => (DRAFT.toastWhen := TOAST_WHENS[ctl.Value], CommitDraft()))
     y := Row(grp, 64)
@@ -1400,8 +1399,13 @@ BuildNotificationsPage() {
     UI.toastAnim := NewList("notifications", SL.rx - 220, y + 17, 220, TOAST_ANIM_LABELS
                           , (ctl, *) => (DRAFT.toastAnim := TOAST_ANIMS[ctl.Value], CommitDraft()))
     y := Row(grp, 64)
+    RowText("notifications", y, 64, "Transparency effects", "Frosted glass. It can be heavy for older or low-power PCs.", 470
+          , "On: the notification blurs what's behind it (a screen capture each time).`n"
+          . "Off: a solid card in the colors of this window.")
+    NewSwitch("toastGlass", "notifications", SL.rx - 40, y + 22)
+    y := Row(grp, 64)
     RowText("notifications", y, 64, "Preview", "Show a notification with these settings.", 330)
-    NewButton("notifications", SL.rx - 160, y + 17, 160, "Show a test").OnEvent("Click", PreviewToast)
+    NewButton("notifications", SL.rx - 160, y + 16, 160, "Show a test").OnEvent("Click", PreviewToast)
 }
 
 BuildUpdatesPage() {
@@ -1412,11 +1416,11 @@ BuildUpdatesPage() {
     y := Row(grp, 64)
     r := RowText("updates", y, 64, "Version " APP.version, "", 340)
     UI.updText := r.desc
-    UI.updBtn := NewButton("updates", SL.rx - 170, y + 17, 170, "Check now")
+    UI.updBtn := NewButton("updates", SL.rx - 170, y + 16, 170, "Check now")
     UI.updBtn.OnEvent("Click", (*) => UpdateAction())
     y := Row(grp, 64)
     RowText("updates", y, 64, "Release notes", "What changed in each version.", 400)
-    NewButton("updates", SL.rx - 96, y + 17, 96, "Open").OnEvent("Click", (*) => Run(APP.repo "/releases"))
+    NewButton("updates", SL.rx - 96, y + 16, 96, "Open").OnEvent("Click", (*) => Run(APP.repo "/releases"))
 }
 
 BuildAdvancedPage() {
@@ -1430,40 +1434,21 @@ BuildAdvancedPage() {
     y := Row(grp, 64)
     r := RowText("advanced", y, 64, "Settings file", "", SL.rx - 140 - SL.cx - 16)
     UI.settingsPath := r.desc
-    NewButton("advanced", SL.rx - 130, y + 17, 130, "Open folder").OnEvent("Click", (*) => OpenSettingsFolder())
+    NewButton("advanced", SL.rx - 130, y + 16, 130, "Open folder").OnEvent("Click", (*) => OpenSettingsFolder())
     y := Row(grp, 64)
     RowText("advanced", y, 64, "Reset all settings", "Puts every option back to its default value.", 400)
-    NewButton("advanced", SL.rx - 110, y + 17, 110, "Reset…").OnEvent("Click", ResetSettings)
-    y := Row(grp, 64)
-    RowText("advanced", y, 64, "Restart the app", "For example after editing settings.ini by hand.", 400)
-    NewButton("advanced", SL.rx - 110, y + 17, 110, "Restart").OnEvent("Click", (*) => RestartApp())
+    NewButton("advanced", SL.rx - 110, y + 16, 110, "Reset…", "danger").OnEvent("Click", ResetSettings)
 }
 
 BuildAboutPage() {
-    th := UI.th, x := SL.cx + 16
-    grp := Group("about", 70)
-    Row(grp, 84)
-    AddIcon("about", x, 88, 48)
-    Place("Text", "about", x + 64, 84, 400, 26, "0x80 Background" Hex6(th.card), APP.name, 14, "w600", th.text)
-    Place("Text", "about", x + 64, 112, 460, 34, "0x80 Background" Hex6(th.card)
-        , "Version " APP.version " · MIT License · Remaps the NitroSense key, or any other key.", 9, "w400", th.sub)
-
-    grp := Group("about", grp.y + grp.h + 16, "Help and feedback")
+    ; The app card is the link to the project page
+    NewWidget("card", "about", SL.cx, 70, SL.cw, 100).OnEvent("Click", (*) => Run(APP.repo))
+    grp := Group("about", 70 + 100 + 16, "Help and feedback")
     for link in LINKS {
-        y := Row(grp, 40)
-        url := APP.repo link[2]
-        t := Place("Text", "about", x, y + 10, 400, 20, "0x80 Background" Hex6(th.card), link[1], 10.5, "w400", th.text)
-        icon := Place("Text", "about", SL.rx - 24, y + 11, 20, 18, "Background" Hex6(th.card), Chr(0xE8A7), 10, "w400", th.sub
-                    , "Segoe MDL2 Assets|Segoe Fluent Icons")
-        for ctl in [t, icon]
-            ctl.OnEvent("Click", OpenUrl.Bind(url))
+        y := Row(grp, 44)
+        NewWidget("link", "about", SL.cx + 4, y + 4, SL.cw - 8, 36, {label: link[1], glyph: link[3]})
+            .OnEvent("Click", OpenUrl.Bind(APP.repo link[2]))
     }
-
-    grp := Group("about", grp.y + grp.h + 16, "Frequently asked questions")
-    Row(grp, SL.H - 20 - grp.y)
-    faq := Place("Edit", "about", x - 4, grp.y + 8, SL.cw - 24, SL.H - 36 - grp.y
-               , "ReadOnly Multi VScroll -E0x200 -TabStop Background" Hex6(th.card), FAQ_TEXT, 9.5, "w400", th.text)
-    ThemeCtl(faq)
 }
 
 OpenUrl(url, *) => Run(url)
@@ -1484,11 +1469,13 @@ DpiAt(x, y) {
 }
 
 ; Adds a control at logical coordinates and remembers it for DPI changes.
-; page "" = always visible (sidebar, header).
+; page "" = always visible (sidebar, header); other sections start hidden.
 Place(type, page, x, y, w, h, opts := "", text := "", pts := 10, style := "w400", color := -1, fontName := "Segoe UI") {
     item := {x: x, y: y, w: w, h: h, pts: pts, style: style, color: color, fontName: fontName, page: page}
     ItemFont(UI.gui, item)
     pos := "x" Px(x) " y" Px(y) " w" Px(w) (h != "" ? " h" Px(h) : "")
+    if (page != "" && page != UI.page)
+        opts .= " Hidden"
     ctl := UI.gui.Add(type, pos " " opts, text)
     item.ctl := ctl
     UI.items.Push(item)
@@ -1497,19 +1484,23 @@ Place(type, page, x, y, w, h, opts := "", text := "", pts := 10, style := "w400"
 }
 
 ItemFont(target, item) {                ; target: the Gui (before adding) or the control
-    opts := "s" FontPts(item.pts) " " item.style (item.color >= 0 ? " c" Hex6(item.color) : "")
-    for name in StrSplit(item.fontName, "|")
-        target.SetFont(opts, name)      ; the last font that exists wins
+    target.SetFont("s" FontPts(item.pts) " " item.style (item.color >= 0 ? " c" Hex6(item.color) : ""), item.fontName)
 }
 
-AddIcon(page, x, y, size) {
-    has := A_IsCompiled || FileExist(IconPath())       ; from source, assets\ may be missing
-    ctl := Place("Picture", page, x, y, size, size, A_IsCompiled ? "Icon1" : "", has ? (A_IsCompiled ? A_ScriptFullPath : IconPath()) : "")
-    if !has
+; Text color that survives a DPI change (ItemFont applies it again)
+SetColor(ctl, color) {
+    item := UI.itemOf[ctl.Hwnd]
+    if (item.color = color)
         return
+    item.color := color
+    ctl.SetFont("c" Hex6(color))
+}
+
+AddIcon(x, y, size) {                   ; the app icon, in the sidebar
+    if !(A_IsCompiled || FileExist(IconPath()))     ; from source, assets\ may be missing
+        return
+    ctl := Place("Picture", "", x, y, size, size, A_IsCompiled ? "Icon1" : "", A_IsCompiled ? A_ScriptFullPath : IconPath())
     UI.icons.Push({ctl: ctl, size: size})
-    if (page != "")
-        UI.cardStatics[ctl.Hwnd] := true        ; drawn on a card, not on the window color
 }
 
 IconSpec(size) => (A_IsCompiled ? "*icon1 " : "") "*w" Px(size) " *h" Px(size) " " (A_IsCompiled ? A_ScriptFullPath : IconPath())
@@ -1544,10 +1535,10 @@ RowText(page, y, h, title, desc, textW, info := "", titleY := "") {
         tw := TextWidth(out.title, title) + 2
         UI.itemOf[out.title.Hwnd].w := tw
         out.title.Move(, , Px(tw))
-        icon := Place("Text", page, x + tw + 6, y + titleY + 2, 18, 18, bg, Chr(0xE946), 10, "w400", th.sub
-                    , "Segoe MDL2 Assets|Segoe Fluent Icons")
+        icon := Place("Text", page, x + tw + 6, y + titleY + 2, 18, 18, bg, Chr(0xE946), 10, "w400", th.sub, UI.iconFont)
         icon.OnEvent("Click", (ctl, *) => ShowInfoTip(ctl.Hwnd))
         UI.infoTips[icon.Hwnd] := info
+        UI.hand[icon.Hwnd] := true
     }
     return out
 }
@@ -1563,80 +1554,180 @@ TextWidth(ctl, text) {                  ; in logical pixels, with the control's 
     return Ceil(NumGet(sz, 0, "int") / UI.k)
 }
 
-NewButton(page, x, y, w, text, onCard := true, pts := 10, fontName := "Segoe UI") {
-    btn := Place("Button", page, x, y, w, 30, "", text, pts, "w400", -1, fontName)
-    ThemeCtl(btn)
-    if onCard
-        UI.cardBtns[btn.Hwnd] := true
-    return btn
+NewWidget(kind, page, x, y, w, h, props := "") {
+    return UiWidget(Place("Picture", page, x, y, w, h, "0x10E"), kind, w, h, props)    ; SS_BITMAP | SS_NOTIFY (mouse input)
 }
+
+; variant: "" (normal), "danger" (red, like GitHub's danger zone), "accent" (green)
+NewButton(page, x, y, w, text, variant := "") => NewWidget("button", page, x, y, w, 32, {_text: text, variant: variant})
 
 NewList(page, x, y, w, items, onChange) {
     ddl := Place("DropDownList", page, x, y, w, "", "AltSubmit", items, 10, "w400", UI.th.text)
-    ThemeCtl(ddl, "combo")
+    ThemeCtl(ddl)
     ddl.OnEvent("Change", onChange)
+    UI.hand[ddl.Hwnd] := true
     return ddl
 }
 
 ; The keys of a shortcut drawn as keycaps; click = same as "Change…"
 NewKeyView(name, page, x, y) {
-    pic := Place("Picture", page, x, y, UI.kvW, 34)
-    pic.OnEvent("Click", (*) => CaptureToggle(name))
-    return pic
+    return NewWidget("keys", page, x, y, UI.kvW, 34, {parts: [], listen: false})
+        .OnEvent("Click", (*) => CaptureToggle(name))
 }
 
-; On/off switch (a picture: clicking it flips the setting)
+; On/off switch: clicking it flips the setting
 NewSwitch(name, page, x, y) {
-    pic := Place("Picture", page, x, y, 40, 20)
-    pic.OnEvent("Click", (*) => FlipSwitch(name))
-    pic.OnEvent("DoubleClick", (*) => FlipSwitch(name))     ; fast second click
-    UI.tg[name] := pic
-    return pic
+    UI.tg[name] := NewWidget("switch", page, x, y, 40, 20)
+    return UI.tg[name].OnEvent("Click", (*) => FlipSwitch(name))
+}
+
+; A custom-drawn control: a Picture redrawn for each state. Hidden ones are
+; only marked and get drawn when their section is shown.
+class UiWidget {
+    __New(ctl, kind, lw, lh, props := "") {
+        this.ctl := ctl, this.kind := kind, this.lw := lw, this.lh := lh
+        this._text := "", this._enabled := true, this.variant := "", this.on := "", this.pos := 0
+        this.hover := false, this.press := false, this.dirty := true, this.onClick := 0
+        if IsObject(props)
+            for name, value in props.OwnProps()
+                this.%name% := value
+        UI.widgets[ctl.Hwnd] := this
+    }
+    Text {
+        get => this._text
+        set {
+            if (value == this._text)
+                return
+            this._text := value
+            this.Draw()
+        }
+    }
+    Enabled {
+        get => this._enabled
+        set {
+            value := value ? true : false
+            if (value = this._enabled)
+                return
+            this._enabled := value
+            if !value
+                this.hover := false, this.press := false
+            this.Draw()
+        }
+    }
+    Visible {
+        get => this.ctl.Visible
+        set => this.ctl.Visible := value
+    }
+    Hwnd => this.ctl.Hwnd
+    GetPos(&x := 0, &y := 0, &w := 0, &h := 0) => this.ctl.GetPos(&x, &y, &w, &h)
+    OnEvent(name, fn) {                 ; "Click": button-up over the widget
+        this.onClick := fn
+        return this
+    }
+    Update(props) {                     ; several fields at once, one redraw
+        for name, value in props.OwnProps()
+            this.%name% := value
+        this.Draw()
+    }
+    Draw() {
+        if !UI.gui
+            return
+        if !this.ctl.Visible {
+            this.dirty := true
+            return
+        }
+        this.dirty := false
+        ; Straight to the control: 3x faster than setting .Value. The control
+        ; keeps its own copy of a bitmap with alpha; free whatever isn't in use.
+        hbm := RenderWidget(this), hwnd := this.ctl.Hwnd
+        prev := DllCall("SendMessage", "ptr", hwnd, "uint", 0x172, "ptr", 0, "ptr", hbm, "ptr")   ; STM_SETIMAGE
+        cur := DllCall("SendMessage", "ptr", hwnd, "uint", 0x173, "ptr", 0, "ptr", 0, "ptr")      ; STM_GETIMAGE
+        if (cur != hbm)
+            DllCall("DeleteObject", "ptr", hbm)
+        if (prev && prev != cur)
+            DllCall("DeleteObject", "ptr", prev)
+    }
+    Free() {                            ; before the window is destroyed
+        if (hbm := DllCall("SendMessage", "ptr", this.ctl.Hwnd, "uint", 0x172, "ptr", 0, "ptr", 0, "ptr"))
+            DllCall("DeleteObject", "ptr", hbm)
+    }
+}
+
+; Stops painting while many controls change, then repaints everything once.
+; Nests; does nothing while the window is hidden (WM_SETREDRAW would show it).
+Freeze(on, repaint := true) {
+    hwnd := UI.gui.Hwnd
+    if on {
+        if (UI.frozen++ = 0 && (UI.paintOff := DllCall("IsWindowVisible", "ptr", hwnd)))
+            DllCall("SendMessage", "ptr", hwnd, "uint", 0xB, "ptr", 0, "ptr", 0)      ; WM_SETREDRAW
+    } else if (--UI.frozen = 0 && UI.paintOff) {
+        UI.paintOff := false
+        DllCall("SendMessage", "ptr", hwnd, "uint", 0xB, "ptr", 1, "ptr", 0)
+        if repaint
+            DllCall("RedrawWindow", "ptr", hwnd, "ptr", 0, "ptr", 0, "uint", 0x585)  ; erase, frame, children, now
+    }
 }
 
 ShowPage(name, *) {
     if !UI.gui
         return
     old := PMv2()
+    prev := UI.page
     UI.page := name
+    Freeze(true)
+    if (UI.laidOut[name] != UI.dpi)         ; the DPI changed while it was hidden
+        LayoutPage(name)
     for item in UI.items
-        if (item.page != "")
+        if (item.page != "" && (item.page = name || item.page = prev))
             item.ctl.Visible := item.page = name
     for p in PAGES
         if (p[1] = name)
             UI.title.Value := p[2]
     ToolTip()
-    RenderChrome()
-    DllCall("InvalidateRect", "ptr", UI.gui.Hwnd, "ptr", 0, "int", 1)
+    UI.tipFor := 0
+    SetHot(0)
+    RenderPageBackground()
+    for hwnd, wd in UI.widgets
+        if (wd.dirty && wd.ctl.Visible)
+            wd.Draw()
+    if (prev != name) {
+        UI.nav[prev].Draw()
+        nav := UI.nav[name]
+        nav.pos := 0                        ; the accent bar grows in
+        nav.Draw()
+        Animate(nav, 1, 320)
+    }
+    Freeze(false)
     PMv2(old)
 }
 
-; Background (cards of the current page) and sidebar items
-RenderChrome() {
+; Positions and fonts of one section's controls for the current DPI
+; ("" = sidebar and header), moved in one batch
+LayoutPage(page) {
+    list := []
+    for item in UI.items
+        if (item.page = page)
+            list.Push(item)
+    hdwp := DllCall("BeginDeferWindowPos", "int", list.Length, "ptr")
+    for item in list                        ; drop-down lists: the height is the open list's
+        hdwp := DllCall("DeferWindowPos", "ptr", hdwp, "ptr", item.ctl.Hwnd, "ptr", 0, "int", Px(item.x), "int", Px(item.y)
+                      , "int", Px(item.w), "int", Px(item.h = "" ? 300 : item.h), "uint", 0x14, "ptr")
+    DllCall("EndDeferWindowPos", "ptr", hdwp)
+    for item in list
+        if (item.ctl.Type != "Pic")         ; pictures have no font
+            ItemFont(item.ctl, item)
+    if (page = "")
+        for icon in UI.icons
+            icon.ctl.Value := IconSpec(icon.size)
+    UI.laidOut[page] := UI.dpi
+}
+
+; Background (cards of the current section), painted on WM_ERASEBKGND
+RenderPageBackground() {
     if UI.bgBmp
         DllCall("DeleteObject", "ptr", UI.bgBmp)
     UI.bgW := Px(SL.W), UI.bgH := Px(SL.H)
     UI.bgBmp := RenderBackground(SL.W, SL.H, UI.groups[UI.page])
-    for p in PAGES
-        UI.nav[p[1]].Value := "HBITMAP:" RenderNav(p[2], p[3], p[1] = UI.page)
-}
-
-ShowMoreMenu(btn, *) {
-    static m := 0
-    if !m {
-        m := Menu()
-        m.Add("Open settings folder", (*) => OpenSettingsFolder())
-        m.Add("Report a bug", (*) => Run(APP.repo LINKS[1][2]))
-        m.Add("Project page on GitHub", (*) => Run(APP.repo))
-        m.Add()
-        m.Add("Restart app", (*) => RestartApp())
-        m.Add("Exit app", (*) => ExitApp())
-    }
-    old := PMv2()
-    WinGetPos(&x, &y, &w, &h, btn.Hwnd)
-    CoordMode("Menu", "Screen")
-    m.Show(x, y + h)
-    PMv2(old)
 }
 
 ShowInfoTip(hwnd) {
@@ -1660,41 +1751,177 @@ CheckInfoTip() {
     SetTimer(CheckInfoTip, 0)
 }
 
-OnSettingsMouseMove(wParam, lParam, msg, hwnd) {
-    if (UI.gui && UI.infoTips.Has(hwnd) && UI.tipFor != hwnd)
-        ShowInfoTip(hwnd)
-}
-
-; Moved to a monitor with another scale: lay everything out again
+; Moved to a monitor with another scale: lay out the visible section again,
+; resize as Windows suggests, then paint once
 OnSettingsDpiChanged(wParam, lParam, msg, hwnd) {
     if (!UI.gui || hwnd != UI.gui.Hwnd)
         return
     if ((wParam & 0xFFFF) = UI.dpi)         ; e.g. first shown on this monitor: already laid out for it
         return 0
+    x := NumGet(lParam, 0, "int"), y := NumGet(lParam, 4, "int")
+    w := NumGet(lParam, 8, "int") - x, h := NumGet(lParam, 12, "int") - y
+    old := PMv2()
     UI.dpi := wParam & 0xFFFF, UI.k := UI.dpi / 96
+    Freeze(true)
     ApplyLayout()
-    DllCall("SetWindowPos", "ptr", hwnd, "ptr", 0, "int", NumGet(lParam, 0, "int"), "int", NumGet(lParam, 4, "int")
-          , "int", NumGet(lParam, 8, "int") - NumGet(lParam, 0, "int"), "int", NumGet(lParam, 12, "int") - NumGet(lParam, 4, "int")
-          , "uint", 0x14)                                   ; SWP_NOZORDER | SWP_NOACTIVATE
+    Freeze(false, false)
+    DllCall("SetWindowPos", "ptr", hwnd, "ptr", 0, "int", x, "int", y, "int", w, "int", h, "uint", 0x14)  ; no z-order, no activate
+    DllCall("RedrawWindow", "ptr", hwnd, "ptr", 0, "ptr", 0, "uint", 0x585)
+    PMv2(old)
     return 0
 }
 
 ApplyLayout() {
     old := PMv2()
-    for item in UI.items {
-        if (item.ctl.Type != "Pic")             ; pictures have no font
-            ItemFont(item.ctl, item)
-        if (item.h = "")
-            item.ctl.Move(Px(item.x), Px(item.y), Px(item.w))
-        else
-            item.ctl.Move(Px(item.x), Px(item.y), Px(item.w), Px(item.h))
-    }
-    for icon in UI.icons
-        icon.ctl.Value := IconSpec(icon.size)
-    RenderChrome()
-    RefreshSettings()
-    DllCall("InvalidateRect", "ptr", UI.gui.Hwnd, "ptr", 0, "int", 1)
+    Freeze(true)
+    LayoutPage("")
+    LayoutPage(UI.page)                     ; the other sections when they're shown
+    RenderPageBackground()
+    if UI.cardIcon
+        DllCall("DestroyIcon", "ptr", UI.cardIcon), UI.cardIcon := 0
+    for hwnd, wd in UI.widgets
+        wd.Draw()
+    Freeze(false)
     PMv2(old)
+}
+
+; ---- Mouse: hover, press, click, cursor ---------------------------------------
+
+OnSettingsSetCursor(wParam, lParam, msg, hwnd) {
+    static hand := DllCall("LoadCursor", "ptr", 0, "ptr", 32649, "ptr")    ; IDC_HAND
+    if (!UI.gui || hwnd != UI.gui.Hwnd || (lParam & 0xFFFF) != 1)          ; HTCLIENT
+        return
+    if (UI.widgets.Has(wParam) ? UI.widgets[wParam]._enabled : UI.hand.Has(wParam)) {
+        DllCall("SetCursor", "ptr", hand)
+        return 1
+    }
+}
+
+OnSettingsMouseMove(wParam, lParam, msg, hwnd) {
+    if !UI.gui
+        return
+    if (UI.infoTips.Has(hwnd) && UI.tipFor != hwnd)
+        ShowInfoTip(hwnd)
+    if !UI.widgets.Has(hwnd) {
+        if UI.hot
+            SetHot(0)
+        return
+    }
+    wd := UI.widgets[hwnd]
+    if wd.press {                           ; captured: looks pressed only while over it
+        inside := InClient(hwnd, lParam)
+        if (inside != wd.hover)
+            wd.hover := inside, wd.Draw()
+    } else if wd._enabled
+        SetHot(hwnd)
+}
+
+OnSettingsMouseDown(wParam, lParam, msg, hwnd) {
+    if (!UI.gui || !UI.widgets.Has(hwnd))
+        return
+    wd := UI.widgets[hwnd]
+    if wd._enabled {
+        wd.press := true, wd.hover := true
+        DllCall("SetCapture", "ptr", hwnd)
+        wd.Draw()
+    }
+    return 0
+}
+
+OnSettingsMouseUp(wParam, lParam, msg, hwnd) {
+    if (!UI.gui || !UI.widgets.Has(hwnd))
+        return
+    wd := UI.widgets[hwnd]
+    if !wd.press
+        return 0
+    inside := InClient(hwnd, lParam)
+    wd.press := false, wd.hover := inside
+    DllCall("ReleaseCapture")
+    wd.Draw()
+    if (inside && wd._enabled && wd.onClick)
+        SetTimer(wd.onClick.Bind(wd), -1)   ; not inside the message handler
+    return 0
+}
+
+InClient(hwnd, lParam) {
+    x := lParam << 48 >> 48, y := lParam << 32 >> 48       ; signed client coordinates
+    rc := Buffer(16)
+    DllCall("GetClientRect", "ptr", hwnd, "ptr", rc)
+    return x >= 0 && y >= 0 && x < NumGet(rc, 8, "int") && y < NumGet(rc, 12, "int")
+}
+
+; The widget under the mouse (hwnd, 0 = none) gets the hover look
+SetHot(hwnd) {
+    if (UI.hot = hwnd)
+        return
+    if (UI.hot && UI.widgets.Has(UI.hot)) {
+        wd := UI.widgets[UI.hot]
+        wd.hover := false
+        wd.Draw()
+    }
+    UI.hot := hwnd
+    if hwnd {
+        wd := UI.widgets[hwnd]
+        wd.hover := true
+        wd.Draw()
+    }
+    SetTimer(CheckHot, hwnd ? 50 : 0)
+}
+
+CheckHot() {                            ; the mouse left the window, or a press got lost
+    if (!UI.gui || !UI.hot || !UI.widgets.Has(UI.hot)) {
+        SetTimer(CheckHot, 0)
+        return
+    }
+    wd := UI.widgets[UI.hot]
+    if wd.press {
+        if (DllCall("GetKeyState", "int", 1, "short") < 0)
+            return
+        wd.press := false
+        DllCall("ReleaseCapture")
+    }
+    MouseGetPos(, , , &over, 2)
+    if (over != UI.hot)
+        SetHot(0)
+    else
+        wd.Draw()
+}
+
+; ---- Animation ---------------------------------------------------------------
+; Widgets animate their "pos" (a switch's knob, a sidebar entry's accent bar)
+; with a small overshoot. Skipped when Windows' animation effects are off.
+
+Animate(wd, to, ms := 260) {
+    if (!wd.ctl.Visible || !AnimationsOn()) {
+        if UI.anims.Has(wd)
+            UI.anims.Delete(wd)
+        wd.pos := to
+        wd.Draw()
+        return
+    }
+    UI.anims[wd] := {from: wd.pos, to: to, t0: A_TickCount, ms: ms}
+    SetTimer(AnimTick, 10)
+}
+
+AnimTick() {
+    if (!UI.gui || !UI.anims.Count) {
+        SetTimer(AnimTick, 0)
+        return
+    }
+    now := A_TickCount
+    for wd, a in UI.anims.Clone() {
+        p := Min((now - a.t0) / a.ms, 1)
+        wd.pos := p >= 1 ? a.to : a.from + (a.to - a.from) * GT_EaseOutBack(p, 1.7)
+        if (p >= 1)
+            UI.anims.Delete(wd)
+        wd.Draw()
+    }
+}
+
+AnimationsOn() {                        ; Settings > Accessibility > Visual effects > Animation effects
+    on := 1
+    DllCall("SystemParametersInfo", "uint", 0x1042, "uint", 0, "int*", &on, "uint", 0)   ; SPI_GETCLIENTAREAANIMATION
+    return on
 }
 
 ; ---- State -> window -----------------------------------------------------------
@@ -1756,7 +1983,7 @@ RefreshSettings() {
     isKey := d.mode = "Key", on := d.launchEnabled ? 1 : 0
 
     UI.status.Value := PAUSED ? "Paused" : "Active"
-    UI.status.SetFont("c" Hex6(PAUSED ? th.warn : th.ok))
+    SetColor(UI.status, PAUSED ? th.warn : th.ok)
 
     ; General
     SetSwitch("remapping", !PAUSED)
@@ -1770,21 +1997,18 @@ RefreshSettings() {
     UI.mode.Value := ChoiceIndex(MODES, d.mode)
     UI.actionInfo.Value := isKey ? "Presses the key or shortcut chosen below instead." : ACTION_INFO[d.mode]
     SetKeyView("target", UI.targetKeys, d.targetMods, d.targetVK, d.targetSC, false, listening = "target", !isKey)
-    UI.targetKeys.Enabled := isKey, UI.targetBtn.Enabled := isKey
-    UI.targetBtn.Text := listening = "target" ? "Cancel" : "Change…"
-    UI.targetTitle.SetFont("c" Hex6(isKey ? th.text : th.dim))
+    UI.targetBtn.Update({_text: listening = "target" ? "Cancel" : "Change…", _enabled: isKey})
+    SetColor(UI.targetTitle, isKey ? th.text : th.dim)
     RowNote(UI.srcDesc, "source", KeyCode(d.sourceVK, d.sourceSC))
     RowNote(UI.targetDesc, "target", isKey ? KeyCode(d.targetVK, d.targetSC) : "Not used by this action", !isKey)
 
     SetSwitch("launchEnabled", on)
     SetKeyView("launch", UI.launchKeys, d.launchMods, d.launchVK, d.launchSC, d.launchAnySide, listening = "launch", !on)
-    UI.launchKeys.Enabled := on
-    UI.launchBtn.Text := listening = "launch" ? "Cancel" : "Change…"
+    UI.launchBtn.Update({_text: listening = "launch" ? "Cancel" : "Change…", _enabled: on})
     SetSwitch("distinguish", !d.launchAnySide, !on)
-    for ctl in [UI.launchBtn, UI.auto, UI.browse]
-        ctl.Enabled := on
+    UI.auto.Enabled := on, UI.browse.Enabled := on
     for ctl in [UI.launchTitle, UI.sidesTitle, UI.appTitle]
-        ctl.SetFont("c" Hex6(on ? th.text : th.dim))
+        SetColor(ctl, on ? th.text : th.dim)
     RowNote(UI.launchDesc, "launch", KeyCode(d.launchVK, d.launchSC), !on)
     UpdateApp()
 
@@ -1792,6 +2016,7 @@ RefreshSettings() {
     UI.toastWhen.Value := ChoiceIndex(TOAST_WHENS, d.toastWhen)
     UI.toastPos.Value := ChoiceIndex(TOAST_POSITIONS, d.toastPosition)
     UI.toastAnim.Value := ChoiceIndex(TOAST_ANIMS, d.toastAnim)
+    SetSwitch("toastGlass", d.toastGlass)
 
     ; Updates
     SetSwitch("checkUpdates", d.checkUpdates)
@@ -1808,25 +2033,35 @@ RowNote(ctl, where, normal, dim := false) {
     th := UI.th
     if (UI.problemWhere = where) {
         ctl.Value := where = "target" ? "Click Change… to choose it." : "Add a modifier, e.g. Right Ctrl."
-        ctl.SetFont("c" Hex6(th.warn))
+        SetColor(ctl, th.warn)
     } else {
         ctl.Value := normal
-        ctl.SetFont("c" Hex6(dim ? th.dim : th.sub))
+        SetColor(ctl, dim ? th.dim : th.sub)
     }
 }
 
 KeyCode(vk, sc) => vk ? Format("Code: VK {:X} · SC {:X}", vk, sc) : "Not set yet"
 
-SetKeyView(name, pic, mods, vk, sc, anySide, listen, dim := false) {
-    parts := vk ? ComboParts(mods, vk, sc, anySide) : []
+SetKeyView(name, wd, mods, vk, sc, anySide, listen, dim := false) {
     UI.keyText[name] := listen ? "listening" : vk ? ComboLabel(mods, vk, sc, anySide) : "Not set"
-    pic.Value := "HBITMAP:" RenderKeys(parts, "", listen, dim)
+    wd.Update({parts: vk ? ComboParts(mods, vk, sc, anySide) : [], listen: listen, _enabled: !dim})
 }
 
+; Sets a switch; a change of state slides the knob (not on the first draw)
 SetSwitch(name, on, dim := false) {
-    UI.tgState[name] := on ? 1 : 0
-    UI.tg[name].Enabled := !dim
-    UI.tg[name].Value := "HBITMAP:" RenderSwitch(on, dim)
+    wd := UI.tg[name], on := on ? 1 : 0
+    UI.tgState[name] := on
+    slide := wd.on != "" && on != wd.on
+    wd.on := on, wd._enabled := !dim
+    if dim
+        wd.hover := false, wd.press := false
+    if slide
+        Animate(wd, on)
+    else {
+        if !UI.anims.Has(wd)
+            wd.pos := on
+        wd.Draw()
+    }
 }
 
 ChoiceIndex(list, value) {
@@ -1861,19 +2096,19 @@ UpdateApp() {
             status := file ": file not found, click Browse…", color := th.warn
     }
     UI.appStatus.Value := status
-    UI.appStatus.SetFont("c" Hex6(DRAFT.launchEnabled ? color : th.dim))
+    SetColor(UI.appStatus, DRAFT.launchEnabled ? color : th.dim)
 }
 
 UpdateUpdatesRow() {
     if !UI.gui
         return
-    th := UI.th, color := th.sub
+    th := UI.th, color := th.sub, variant := ""
     switch UPD.state {
         case "checking":
             btn := "Checking…", text := "Looking for a new version…"
         case "available":
             btn := (A_IsCompiled ? "Install " : "Download ") UPD.latest
-            text := "A new version is available", color := th.ok
+            text := "A new version is available", color := th.ok, variant := "accent"
         case "latest":
             btn := "Check now", text := "You're up to date"
         case "error":
@@ -1881,10 +2116,9 @@ UpdateUpdatesRow() {
         default:
             btn := "Check now", text := "Not checked yet"
     }
-    UI.updBtn.Text := btn
-    UI.updBtn.Enabled := UPD.state != "checking"
+    UI.updBtn.Update({_text: btn, variant: variant, _enabled: UPD.state != "checking"})
     UI.updText.Value := text
-    UI.updText.SetFont("c" Hex6(color))
+    SetColor(UI.updText, color)
 }
 
 DetectForApp() {
@@ -1932,14 +2166,15 @@ ResetSettings(*) {
     CommitDraft()
 }
 
-; Shows a notification with the position and animation chosen in the window
+; Shows a notification with the style chosen in the window
 PreviewToast(*) {
-    saved := [GTCFG.position, GTCFG.animation]
-    GTCFG.position := DRAFT.toastPosition, GTCFG.animation := DRAFT.toastAnim
+    saved := [GTCFG.position, GTCFG.animation, GTCFG.glass]
+    GTCFG.position := DRAFT.toastPosition, GTCFG.animation := DRAFT.toastAnim, GTCFG.glass := DRAFT.toastGlass
     try GlassToast("This is how notifications look"
                  , TOAST_POSITION_LABELS[ChoiceIndex(TOAST_POSITIONS, DRAFT.toastPosition)] " · "
-                 . TOAST_ANIM_LABELS[ChoiceIndex(TOAST_ANIMS, DRAFT.toastAnim)], "ok", 3000)
-    GTCFG.position := saved[1], GTCFG.animation := saved[2]
+                 . TOAST_ANIM_LABELS[ChoiceIndex(TOAST_ANIMS, DRAFT.toastAnim)] " · "
+                 . (DRAFT.toastGlass ? "Glass" : "Solid"), "ok", 3000)
+    GTCFG.position := saved[1], GTCFG.animation := saved[2], GTCFG.glass := saved[3]
 }
 
 ; Blocking problems only; where = the row that must show it
@@ -1969,14 +2204,25 @@ DestroySettings() {
     if !UI.gui
         return
     ToolTip()
-    SetTimer(CheckInfoTip, 0)
+    for fn in [CheckInfoTip, CheckHot, AnimTick]
+        SetTimer(fn, 0)
+    DllCall("ReleaseCapture")
     g := UI.gui
-    UI.gui := 0
+    UI.gui := 0, UI.hot := 0
+    for hwnd, wd in UI.widgets
+        wd.Free()
+    UI.widgets := Map(), UI.anims := Map()
     g.Destroy()
-    for handle in [UI.brushWin, UI.brushCard, UI.bgBmp]
+    for handle in [UI.brushCard, UI.bgBmp]
         if handle
             DllCall("DeleteObject", "ptr", handle)
     UI.bgBmp := 0
+    if UI.cardIcon
+        DllCall("DestroyIcon", "ptr", UI.cardIcon), UI.cardIcon := 0
+    for name, fam in UI.fam
+        if fam
+            DllCall("gdiplus\GdipDeleteFontFamily", "ptr", fam)
+    UI.fam := Map()
     if UI.tok
         DllCall("gdiplus\GdiplusShutdown", "ptr", UI.tok), UI.tok := 0
 }
@@ -2018,11 +2264,10 @@ UxOrdinal(n) {
     return DllCall("GetProcAddress", "ptr", ux, "ptr", n, "ptr")
 }
 
-ThemeCtl(ctl, kind := "button") {
+ThemeCtl(ctl) {                         ; drop-down lists in dark mode
     dark := UI.th.dark
     try DllCall(UxOrdinal(133), "ptr", ctl.Hwnd, "int", dark)                      ; AllowDarkModeForWindow
-    DllCall("uxtheme\SetWindowTheme", "ptr", ctl.Hwnd
-          , "str", dark ? (kind = "combo" ? "DarkMode_CFD" : "DarkMode_Explorer") : "Explorer", "ptr", 0)
+    DllCall("uxtheme\SetWindowTheme", "ptr", ctl.Hwnd, "str", dark ? "DarkMode_CFD" : "Explorer", "ptr", 0)
 }
 
 ThemeTitleBar(hwnd) {
@@ -2060,16 +2305,6 @@ OnSettingsErase(wParam, lParam, msg, hwnd) {
     return 1
 }
 
-OnSettingsCtlColorBtn(wParam, lParam, msg, hwnd) {
-    if (UI.gui && hwnd = UI.gui.Hwnd)
-        return UI.cardBtns.Has(lParam) ? UI.brushCard : UI.brushWin
-}
-
-OnSettingsCtlColorStatic(wParam, lParam, msg, hwnd) {
-    if (UI.gui && hwnd = UI.gui.Hwnd && UI.cardStatics.Has(lParam))
-        return UI.brushCard
-}
-
 OnSettingsCtlColorList(wParam, lParam, msg, hwnd) {
     if (!UI.gui || hwnd != UI.gui.Hwnd || !UI.th.dark)
         return
@@ -2090,6 +2325,12 @@ GdipStart() {
     NumPut("uint", 1, si)
     DllCall("gdiplus\GdiplusStartup", "ptr*", &tok, "ptr", si, "ptr", 0)
     return tok
+}
+
+FontFamily(name) {                      ; GDI+ font family (0 if missing), kept while the window is open
+    if !UI.fam.Has(name)
+        UI.fam[name] := GT_Family(name)
+    return UI.fam[name]
 }
 
 Canvas(wL, hL, bg) {
@@ -2125,6 +2366,15 @@ NewFormat(align) {                      ; 0 left, 1 center, 2 right; vertically 
     return fmt
 }
 
+FreeAll(fonts, formats := "") {
+    for f in fonts
+        if f
+            DllCall("gdiplus\GdipDeleteFont", "ptr", f)
+    if IsObject(formats)
+        for fmt in formats
+            DllCall("gdiplus\GdipDeleteStringFormat", "ptr", fmt)
+}
+
 FillPathFree(g, p, argb) {
     GT_FillPath(g, p, argb)
     DllCall("gdiplus\GdipDeletePath", "ptr", p)
@@ -2136,13 +2386,6 @@ StrokePathFree(g, p, argb, width) {
     DllCall("gdiplus\GdipDrawPath", "ptr", g, "ptr", pen, "ptr", p)
     DllCall("gdiplus\GdipDeletePen", "ptr", pen)
     DllCall("gdiplus\GdipDeletePath", "ptr", p)
-}
-
-FillCircle(g, x, y, d, argb) {
-    brush := 0
-    DllCall("gdiplus\GdipCreateSolidFill", "uint", argb, "ptr*", &brush)
-    DllCall("gdiplus\GdipFillEllipse", "ptr", g, "ptr", brush, "float", x, "float", y, "float", d, "float", d)
-    DllCall("gdiplus\GdipDeleteBrush", "ptr", brush)
 }
 
 ; Window background: the rounded card groups (with row dividers) on the window color
@@ -2163,48 +2406,163 @@ RenderBackground(wL, hL, groups) {
     return CanvasDone(cv, th.win)
 }
 
-; A sidebar entry: icon glyph and label; the selected one gets a pill and an accent bar
-RenderNav(label, glyph, selected) {
-    th := UI.th, k := UI.k
-    cv := Canvas(SL.side - 16, 36, th.win), g := cv.g
-    if selected {
-        FillPathFree(g, GT_RoundPath(0, 0, cv.w, cv.h, 5 * k), Argb(th.navSel))
-        FillPathFree(g, GT_RoundPath(0, (cv.h - 16 * k) / 2, 3 * k, 16 * k, 1.5 * k), Argb(th.accent))
+RenderWidget(wd) {
+    switch wd.kind {
+        case "button": return RenderButton(wd)
+        case "switch": return RenderSwitch(wd)
+        case "nav":    return RenderNav(wd)
+        case "link":   return RenderLink(wd)
+        case "card":   return RenderAboutCard(wd)
+        default:       return RenderKeys(wd)
     }
-    famI := GT_Family("Segoe Fluent Icons")
-    if !famI
-        famI := GT_Family("Segoe MDL2 Assets")
-    famT := GT_Family("Segoe UI")
+}
+
+; A button with a "lip" (a darker edge under it), a bit retro: pressed, the
+; face goes down onto the lip. Danger buttons are red text and turn red on
+; hover, like GitHub's danger zone; accent ones are green.
+RenderButton(wd) {
+    th := UI.th, k := UI.k, v := wd.variant, on := wd._enabled, hot := on && wd.hover
+    cv := Canvas(wd.lw, wd.lh, th.card), g := cv.g
+    lip := Round(2 * k), fh := cv.h - lip, down := hot && wd.press ? lip : 0
+    edge := th.btnEdge, lipColor := th.btnLip, face := hot ? th.btnHover : th.btnFace
+    fg := !on ? th.dim : v = "danger" ? th.danger : th.text
+    if (v = "danger" && hot)
+        face := th.dangerFill, lipColor := th.dangerLip, fg := th.onDanger, edge := 0
+    else if (v = "accent" && on)
+        face := hot ? GT_Lerp(th.accent, th.dark ? 0xFFFFFF : 0x000000, 0.1) : th.accent
+      , lipColor := th.accentLip, fg := th.onAccent, edge := 0
+    if !on
+        lipColor := th.btnEdge
+    rad := 6 * k
+    if !down
+        FillPathFree(g, GT_RoundPath(0, lip, cv.w, fh, rad), Argb(lipColor))
+    FillPathFree(g, GT_RoundPath(0, down, cv.w, fh, rad), Argb(face))
+    if edge
+        StrokePathFree(g, GT_RoundPath(0.5, down + 0.5, cv.w - 1, fh - 1, rad), Argb(edge), 1)
+    font := GT_Font(FontFamily("Segoe UI"), 13.33 * k, 0), fmt := NewFormat(1)
+    GT_Text(g, wd._text, font, Argb(fg), 0, down, cv.w, fh, fmt)
+    FreeAll([font], [fmt])
+    return CanvasDone(cv, th.card)
+}
+
+; Windows 11 style on/off switch. pos: 0 = off, 1 = on, in between (and a bit
+; beyond, the overshoot) while it slides. The knob grows on hover and
+; stretches while pressed.
+RenderSwitch(wd) {
+    th := UI.th, k := UI.k, p := wd.pos, on := wd._enabled
+    q := Max(0, Min(1, p))                  ; colors don't overshoot
+    cv := Canvas(40, 20, th.card), g := cv.g
+    inset := k, ht := cv.h - 2 * inset, tw := cv.w - 2 * inset
+    if (q < 1)
+        StrokePathFree(g, GT_RoundPath(inset, inset, tw, ht, ht / 2), Argb(th.off, Round(255 * (1 - q))), 1.2 * k)
+    if (q > 0)
+        FillPathFree(g, GT_RoundPath(inset, inset, tw, ht, ht / 2), Argb(th.on, Round(255 * q)))
+    d := (10 + 2 * q + (on && wd.hover ? 1.5 : 0)) * k
+    kw := d + (on && wd.press && wd.hover ? 5 * k : 0)
+    cx := (10 + 19 * p) * k
+    x := p < 0.5 ? cx - d / 2 : cx + d / 2 - kw     ; stretches towards the middle
+    FillPathFree(g, GT_RoundPath(x, (cv.h - d) / 2, kw, d, d / 2), Argb(GT_Lerp(th.knobOff, th.knobOn, q)))
+    return CanvasDone(cv, th.card, !on)
+}
+
+; A sidebar entry: icon glyph and label. Hover and pressed get a pill; the
+; selected one too, with an accent bar that grows in (pos).
+RenderNav(wd) {
+    th := UI.th, k := UI.k, sel := wd.page = UI.page
+    cv := Canvas(wd.lw, wd.lh, th.win), g := cv.g
+    pill := wd.press && wd.hover ? th.navPress : sel ? th.navSel : wd.hover ? th.navHover : 0
+    if pill
+        FillPathFree(g, GT_RoundPath(0, 0, cv.w, cv.h, 5 * k), Argb(pill))
+    if (sel && (bh := 16 * k * Max(0, wd.pos)) >= 1)
+        FillPathFree(g, GT_RoundPath(0, (cv.h - bh) / 2, 3 * k, bh, 1.5 * k), Argb(th.accent))
     fmt := NewFormat(0)
-    if famI {
-        fi := GT_Font(famI, 15 * k, 0)
-        GT_Text(g, Chr(glyph), fi, Argb(th.text), 14 * k, 0, 24 * k, cv.h, fmt)
-        DllCall("gdiplus\GdipDeleteFont", "ptr", fi)
-        DllCall("gdiplus\GdipDeleteFontFamily", "ptr", famI)
-    }
-    ft := GT_Font(famT, 13.5 * k, selected ? 1 : 0)
-    GT_Text(g, label, ft, Argb(th.text), 46 * k, 0, cv.w - 50 * k, cv.h, fmt)
-    DllCall("gdiplus\GdipDeleteFont", "ptr", ft)
-    DllCall("gdiplus\GdipDeleteFontFamily", "ptr", famT)
-    DllCall("gdiplus\GdipDeleteStringFormat", "ptr", fmt)
+    fi := FontFamily(UI.iconFont) ? GT_Font(FontFamily(UI.iconFont), 15 * k, 0) : 0
+    if fi
+        GT_Text(g, Chr(wd.glyph), fi, Argb(th.text), 14 * k, 0, 24 * k, cv.h, fmt)
+    ft := GT_Font(FontFamily("Segoe UI"), 13.5 * k, sel ? 1 : 0)
+    GT_Text(g, wd.label, ft, Argb(th.text), 46 * k, 0, cv.w - 50 * k, cv.h, fmt)
+    FreeAll([fi, ft], [fmt])
     return CanvasDone(cv, th.win)
 }
 
-; A key or shortcut as keycaps, with its codes on the right
-RenderKeys(parts, code, listen, dim) {
+; A clickable row on a card (About > Help and feedback): glyph, label, ↗
+RenderLink(wd) {
     th := UI.th, k := UI.k
-    cv := Canvas(UI.kvW, 34, th.card), g := cv.g
-    famR := GT_Family("Segoe UI"), famSB := GT_Family("Segoe UI Semibold")
-    fam := famSB ? famSB : famR
-    fmtL := NewFormat(0), fmtC := NewFormat(1), fmtR := NewFormat(2)
-    fSmall := GT_Font(famR, 11 * k, 0), font := 0
-    avail := cv.w
-    if (code != "") {
-        GT_Text(g, code, fSmall, Argb(th.sub), 0, 0, cv.w, cv.h, fmtR)
-        avail -= GT_MeasureW(g, code, fSmall, fmtL) + 14 * k
+    cv := Canvas(wd.lw, wd.lh, th.card), g := cv.g
+    if wd.hover
+        FillPathFree(g, GT_RoundPath(0, 0, cv.w, cv.h, 4 * k), Argb(wd.press ? th.rowPress : th.rowHover))
+    fmt := NewFormat(0), famI := FontFamily(UI.iconFont)
+    fi := famI ? GT_Font(famI, 16 * k, 0) : 0, fs := famI ? GT_Font(famI, 12 * k, 0) : 0
+    ft := GT_Font(FontFamily("Segoe UI"), 14 * k, 0)
+    if famI {
+        GT_Text(g, Chr(wd.glyph), fi, Argb(th.text), 12 * k, 0, 24 * k, cv.h, fmt)
+        GT_Text(g, Chr(0xE8A7), fs, Argb(wd.hover ? th.text : th.sub), cv.w - 32 * k, 0, 20 * k, cv.h, fmt)
     }
+    GT_Text(g, wd.label, ft, Argb(th.text), 44 * k, 0, cv.w - 90 * k, cv.h, fmt)
+    FreeAll([fi, fs, ft], [fmt])
+    return CanvasDone(cv, th.card)
+}
+
+; About: the app card, a link to the project page
+RenderAboutCard(wd) {
+    th := UI.th, k := UI.k
+    cv := Canvas(wd.lw, wd.lh, th.win), g := cv.g
+    fill := wd.press && wd.hover ? th.rowPress : wd.hover ? th.rowHover : th.card
+    FillPathFree(g, GT_RoundPath(0, 0, cv.w, cv.h, 8 * k), Argb(fill))
+    StrokePathFree(g, GT_RoundPath(0.5, 0.5, cv.w - 1, cv.h - 1, 8 * k), Argb(th.border), 1)
+    famSB := FontFamily("Segoe UI Semibold"), famR := FontFamily("Segoe UI"), famI := FontFamily(UI.iconFont)
+    fmt := NewFormat(0)
+    fTitle := GT_Font(famSB ? famSB : famR, 18.67 * k, famSB ? 0 : 1)
+    fSub := GT_Font(famR, 12 * k, 0)
+    fLink := GT_Font(famR, 12 * k, wd.hover ? 4 : 0)           ; underlined on hover
+    fi := famI ? GT_Font(famI, 12 * k, 0) : 0
+    link := wd.hover ? th.accent : th.sub
+    GT_Text(g, APP.name, fTitle, Argb(th.text), 84 * k, 14 * k, cv.w - 140 * k, 28 * k, fmt)
+    GT_Text(g, "Version " APP.version " · MIT License · Remaps the NitroSense key, or any other key."
+          , fSub, Argb(th.sub), 84 * k, 44 * k, cv.w - 100 * k, 18 * k, fmt)
+    GT_Text(g, RegExReplace(APP.repo, "^https://"), fLink, Argb(link), 84 * k, 68 * k, cv.w - 140 * k, 18 * k, fmt)
+    if fi                                                       ; "opens in the browser"
+        GT_Text(g, Chr(0xE8A7), fi, Argb(link), cv.w - 32 * k, 12 * k, 20 * k, 20 * k, fmt)
+    FreeAll([fTitle, fSub, fLink, fi], [fmt])
+    hbm := CanvasDone(cv, th.win)
+    DrawAppIcon(hbm, Round(20 * k), Round((cv.h - 48 * k) / 2), Round(48 * k))
+    return hbm
+}
+
+DrawAppIcon(hbm, x, y, size) {          ; DrawIconEx keeps the icon's alpha (GDI+ wouldn't)
+    if (!UI.cardIcon || UI.cardIconSize != size) {
+        if UI.cardIcon
+            DllCall("DestroyIcon", "ptr", UI.cardIcon), UI.cardIcon := 0
+        UI.cardIconSize := size
+        file := A_IsCompiled ? A_ScriptFullPath : IconPath()
+        if (A_IsCompiled || FileExist(file)) {
+            imgType := 0
+            try UI.cardIcon := LoadPicture(file, (A_IsCompiled ? "Icon1 " : "") "w" size " h" size, &imgType)
+            if (UI.cardIcon && imgType != 1)
+                DllCall("DeleteObject", "ptr", UI.cardIcon), UI.cardIcon := 0
+        }
+    }
+    if !UI.cardIcon
+        return
+    hdc := DllCall("CreateCompatibleDC", "ptr", 0, "ptr")
+    old := DllCall("SelectObject", "ptr", hdc, "ptr", hbm, "ptr")
+    DllCall("DrawIconEx", "ptr", hdc, "int", x, "int", y, "ptr", UI.cardIcon, "int", size, "int", size, "uint", 0, "ptr", 0, "uint", 3)
+    DllCall("SelectObject", "ptr", hdc, "ptr", old)
+    DllCall("DeleteDC", "ptr", hdc)
+}
+
+; A key or shortcut as keycaps. Hover darkens their edge; pressed, they go down.
+RenderKeys(wd) {
+    th := UI.th, k := UI.k, parts := wd.parts, dim := !wd._enabled
+    cv := Canvas(wd.lw, wd.lh, th.card), g := cv.g
+    famR := FontFamily("Segoe UI"), famSB := FontFamily("Segoe UI Semibold")
+    fam := famSB ? famSB : famR
+    fmtL := NewFormat(0), fmtC := NewFormat(1)
+    font := 0, avail := cv.w
     capH := Round(26 * k), y0 := Round((cv.h - capH) / 2 - k), rad := 6 * k
-    if listen {
+    down := !dim && wd.press && wd.hover ? 2 * k : 0
+    edge := !dim && wd.hover ? th.sub : th.keyEdge
+    if wd.listen {
         font := GT_Font(fam, 12.5 * k, 0), text := "Press a key or shortcut…"
         cw := Min(avail - 2 * k, GT_MeasureW(g, text, font, fmtL) + 26 * k)
         FillPathFree(g, GT_RoundPath(k, y0, cw, capH + 2 * k, rad), Argb(th.accent, 0x24))
@@ -2233,36 +2591,12 @@ RenderKeys(parts, code, listen, dim) {
             }
             capW := GT_MeasureW(g, part, font, fmtL) + 20 * k
             FillPathFree(g, GT_RoundPath(x, y0 + 2 * k, capW, capH, rad), Argb(th.keyShade))
-            FillPathFree(g, GT_RoundPath(x, y0, capW, capH, rad), Argb(th.keyFace))
-            StrokePathFree(g, GT_RoundPath(x + 0.5, y0 + 0.5, capW - 1, capH - 1, rad), Argb(th.keyEdge), 1)
-            GT_Text(g, part, font, Argb(th.keyText), x, y0, capW, capH, fmtC)
+            FillPathFree(g, GT_RoundPath(x, y0 + down, capW, capH, rad), Argb(th.keyFace))
+            StrokePathFree(g, GT_RoundPath(x + 0.5, y0 + down + 0.5, capW - 1, capH - 1, rad), Argb(edge), 1)
+            GT_Text(g, part, font, Argb(th.keyText), x, y0 + down, capW, capH, fmtC)
             x += capW
         }
     }
-    for f in [font, fSmall]
-        if f
-            DllCall("gdiplus\GdipDeleteFont", "ptr", f)
-    for fm in [famR, famSB]
-        if fm
-            DllCall("gdiplus\GdipDeleteFontFamily", "ptr", fm)
-    for fmt in [fmtL, fmtC, fmtR]
-        DllCall("gdiplus\GdipDeleteStringFormat", "ptr", fmt)
-    return CanvasDone(cv, th.card, dim)
-}
-
-; Windows 11 style on/off switch
-RenderSwitch(on, dim) {
-    th := UI.th, k := UI.k
-    cv := Canvas(40, 20, th.card), g := cv.g
-    inset := k, ht := cv.h - 2 * inset
-    if on {
-        FillPathFree(g, GT_RoundPath(inset, inset, cv.w - 2 * inset, ht, ht / 2), Argb(th.on))
-        d := 12 * k
-        FillCircle(g, cv.w - inset - 4 * k - d, (cv.h - d) / 2, d, Argb(th.knobOn))
-    } else {
-        StrokePathFree(g, GT_RoundPath(inset, inset, cv.w - 2 * inset, ht, ht / 2), Argb(th.off), 1.2 * k)
-        d := 10 * k
-        FillCircle(g, inset + 4 * k, (cv.h - d) / 2, d, Argb(th.knobOff))
-    }
+    FreeAll([font], [fmtL, fmtC])
     return CanvasDone(cv, th.card, dim)
 }

@@ -7,6 +7,8 @@
 ; Style, read when each toast is built:
 ;   GTCFG.position:  TopCenter | TopRight | TopLeft | BottomCenter | BottomRight | BottomLeft
 ;   GTCFG.animation: Slide | Fade | None
+;   GTCFG.glass:      true = frosted glass, false = solid card (no screen capture)
+;   GTCFG.solidTheme: "light" | "dark" | "" (= Windows app mode), for the solid card
 ;
 ; Design notes (see docs/DEVELOPMENT.md for the full story):
 ; - Rounded card on the monitor under the mouse (top center by default). It
@@ -14,7 +16,8 @@
 ;   just appears), stays holdMs and leaves the same way. Click to dismiss.
 ; - The "glass" is a capture of the screen behind the card, blurred at 1/4
 ;   resolution and slightly saturated. Light/dark theme is picked from the
-;   luminance of that background.
+;   luminance of that background. Without glass the card is solid, in the
+;   settings window's colors, and nothing is captured.
 ; - PERFORMANCE: everything is drawn ONCE. As soon as DWM has the bitmap,
 ;   every GDI+ object is released (GdiplusShutdown included). The animation
 ;   only moves/fades the window (UpdateLayeredWindow without a bitmap).
@@ -31,7 +34,7 @@ GTCFG := {holdMs: 5000, inMs: 520, outMs: 300
         , top: 18, h: 64, radius: 22, iconSize: 44          ; top = gap to the screen edge
         , minW: 230, maxW: 400, shadowReach: 36
         , blur: 60, saturation: 1.3
-        , position: "TopCenter", animation: "Slide"}
+        , position: "TopCenter", animation: "Slide", glass: true, solidTheme: ""}
 
 GT_KINDS := Map("ok", 0xFF30D158, "warn", 0xFFFF9F0A, "info", 0xFF0A84FF, "update", 0xFF0A84FF)
 
@@ -41,7 +44,10 @@ GT_THEMES := {
           , outline: 0x33000000, accentIcon: 0, shadow: 1},
     light: {tint: 0x99FFFFFF, title: 0xFF2C2C30, sub: 0x8C1C1C1E, sheen: 0x33FFFFFF
           , rimTop: 0xCCFFFFFF, rimMid: 0x26FFFFFF, rimBot: 0x73FFFFFF
-          , outline: 0x14000000, accentIcon: 0.22, shadow: 0.55}
+          , outline: 0x14000000, accentIcon: 0.22, shadow: 0.55},
+    ; Solid cards: same colors as the settings window
+    solidDark:  {fill: 0xFF2B2B2B, edge: 0xFF3A3A3A, title: 0xFFF3F3F3, sub: 0xFFABABAB, accentIcon: 0, shadow: 1},
+    solidLight: {fill: 0xFFFFFFFF, edge: 0xFFE3E3E3, title: 0xFF1A1A1A, sub: 0xFF616161, accentIcon: 0, shadow: 0.55}
 }
 
 GT := {phase: "", t0: 0, holdUntil: 0, holdMs: 5000, anim: "Slide"
@@ -157,16 +163,19 @@ GT_Build(title, sub, kind) {
     ; Background: capture the card area (final position) and blur it. The
     ; margin is larger than the blur radius (clean edges), but the capture
     ; stays on this monitor.
-    marg := Round(90 * S)
-    cardX := GT.xVis + PAD, cardY := GT.yVis + PAD
-    capX := Max(fL, cardX - marg), capY := Max(fT, cardY - marg)
-    capW := Min(fR, cardX + pw + marg) - capX, capH := Min(fB, cardY + ch + marg) - capY
-    th := GT_THEMES.dark
-    blurred := GT_CaptureBlur(capX, capY, capW, capH, S, cardX - capX, cardY - capY, ch, pw, &th)
-    tex := 0
-    DllCall("gdiplus\GdipCreateTexture", "ptr", blurred, "int", 0, "ptr*", &tex)
-    DllCall("gdiplus\GdipTranslateTextureTransform", "ptr", tex
-          , "float", capX - GT.xVis, "float", capY - GT.yVis, "int", 0)
+    glass := GTCFG.glass, blurred := 0, tex := 0
+    if glass {
+        marg := Round(90 * S)
+        cardX := GT.xVis + PAD, cardY := GT.yVis + PAD
+        capX := Max(fL, cardX - marg), capY := Max(fT, cardY - marg)
+        capW := Min(fR, cardX + pw + marg) - capX, capH := Min(fB, cardY + ch + marg) - capY
+        th := GT_THEMES.dark
+        blurred := GT_CaptureBlur(capX, capY, capW, capH, S, cardX - capX, cardY - capY, ch, pw, &th)
+        DllCall("gdiplus\GdipCreateTexture", "ptr", blurred, "int", 0, "ptr*", &tex)
+        DllCall("gdiplus\GdipTranslateTextureTransform", "ptr", tex
+              , "float", capX - GT.xVis, "float", capY - GT.yVis, "int", 0)
+    } else
+        th := GT_SolidLight() ? GT_THEMES.solidLight : GT_THEMES.solidDark
 
     ; --- Draw (once) ---
     x := PAD, y := PAD, w := pw, h := ch
@@ -178,12 +187,15 @@ GT_Build(title, sub, kind) {
     GT_Shadow(g, x, y, w, h, R, S, th.shadow)
     DllCall("gdiplus\GdipResetClip", "ptr", g)
 
-    ; Glass + tint + top sheen
-    DllCall("gdiplus\GdipFillPath", "ptr", g, "ptr", tex, "ptr", card)
-    GT_FillPath(g, card, th.tint)
-    b := GT_Grad(x, y, w, h, [th.sheen, 0x00FFFFFF, 0x00FFFFFF], [0, 0.5, 1])
-    DllCall("gdiplus\GdipFillPath", "ptr", g, "ptr", b, "ptr", card)
-    DllCall("gdiplus\GdipDeleteBrush", "ptr", b)
+    ; Glass + tint + top sheen, or a solid card
+    if glass {
+        DllCall("gdiplus\GdipFillPath", "ptr", g, "ptr", tex, "ptr", card)
+        GT_FillPath(g, card, th.tint)
+        b := GT_Grad(x, y, w, h, [th.sheen, 0x00FFFFFF, 0x00FFFFFF], [0, 0.5, 1])
+        DllCall("gdiplus\GdipFillPath", "ptr", g, "ptr", b, "ptr", card)
+        DllCall("gdiplus\GdipDeleteBrush", "ptr", b)
+    } else
+        GT_FillPath(g, card, th.fill)
 
     ; Concentric icon tile (radius = card radius - margin) + glyph
     ir := Max(2 * S, R - m), ix := x + m, iy := y + m
@@ -208,12 +220,16 @@ GT_Build(title, sub, kind) {
     GT_Text(g, title, fTitle, th.title, tx, cy - 21 * S, tw, 21 * S, fmtL)
     GT_Text(g, sub, fSub, th.sub, tx, cy, tw, 19 * S, fmtL)
 
-    ; Specular rim + thin outline
-    rp := GT_RoundPath(x + 0.6, y + 0.6, w - 1.2, h - 1.2, R - 0.6)
-    GT_StrokeGrad(g, rp, x, y, w, h, [th.rimTop, th.rimMid, th.rimBot], [0, 0.5, 1], 1.2)
-    DllCall("gdiplus\GdipDeletePath", "ptr", rp)
-    op := GT_RoundPath(x - 0.5, y - 0.5, w + 1, h + 1, R + 0.5), pen := 0
-    DllCall("gdiplus\GdipCreatePen1", "uint", th.outline, "float", 1, "int", 2, "ptr*", &pen)
+    ; Specular rim + thin outline (glass), or a 1 px edge (solid)
+    if glass {
+        rp := GT_RoundPath(x + 0.6, y + 0.6, w - 1.2, h - 1.2, R - 0.6)
+        GT_StrokeGrad(g, rp, x, y, w, h, [th.rimTop, th.rimMid, th.rimBot], [0, 0.5, 1], 1.2)
+        DllCall("gdiplus\GdipDeletePath", "ptr", rp)
+        op := GT_RoundPath(x - 0.5, y - 0.5, w + 1, h + 1, R + 0.5), edge := th.outline
+    } else
+        op := GT_RoundPath(x + 0.5, y + 0.5, w - 1, h - 1, R - 0.5), edge := th.edge
+    pen := 0
+    DllCall("gdiplus\GdipCreatePen1", "uint", edge, "float", 1, "int", 2, "ptr*", &pen)
     DllCall("gdiplus\GdipDrawPath", "ptr", g, "ptr", pen, "ptr", op)
     DllCall("gdiplus\GdipDeletePen", "ptr", pen)
     DllCall("gdiplus\GdipDeletePath", "ptr", op)
@@ -230,8 +246,10 @@ GT_Build(title, sub, kind) {
           , "ptr", hdc, "ptr", src, "uint", 0, "uint*", 1 << 24, "uint", 2)
 
     ; Release EVERYTHING used for drawing: DWM already has the content
-    DllCall("gdiplus\GdipDeleteBrush", "ptr", tex)
-    DllCall("gdiplus\GdipDisposeImage", "ptr", blurred)
+    if glass {
+        DllCall("gdiplus\GdipDeleteBrush", "ptr", tex)
+        DllCall("gdiplus\GdipDisposeImage", "ptr", blurred)
+    }
     for f in [fTitle, fSub]
         DllCall("gdiplus\GdipDeleteFont", "ptr", f)
     for fm in [famR, famSB]
@@ -306,6 +324,14 @@ GT_Free() {
         try GT.gui.Destroy()
     }
     GT.gui := 0, GT.hwnd := 0, GT.phase := ""
+}
+
+GT_SolidLight() {                         ; light or dark solid card
+    global GTCFG
+    if (GTCFG.solidTheme != "")
+        return GTCFG.solidTheme = "light"
+    try return RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme")
+    return false
 }
 
 GT_Exclaim(g, ix, iy, isz, col) {          ; "!" for warnings
