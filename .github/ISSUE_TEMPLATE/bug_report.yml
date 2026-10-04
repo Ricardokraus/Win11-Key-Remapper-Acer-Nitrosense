@@ -20,7 +20,7 @@ body:
     id: version
     attributes:
       label: App version
-      description: Tray icon → About / GitHub.
+      description: Shown at the bottom of the settings window (or tray icon → About / GitHub).
       placeholder: "0.2.0"
     validations:
       required: true
@@ -55,9 +55,9 @@ body:
   - type: textarea
     id: codes
     attributes:
-      label: Codes shown by the detector
-      description: Tray → Settings… → Detect key… → press the key. Copy the text of the field for each key involved.
-      placeholder: NitroSense key · VK FF SC 175
+      label: Codes shown in the settings window
+      description: Tray → Settings… → Change… next to Key → press the key. Write down the codes shown on the right of the key, for each key involved.
+      placeholder: NitroSense key · VK FF · SC 175
 
   - type: textarea
     id: settings

@@ -4,11 +4,14 @@
 ;
 ; GlassToast(title, sub, kind := "ok", holdMs := 5000)
 ;   kind: "ok" (green check), "warn" (orange !), "info" (blue pause bars)
+; Style, read when each toast is built:
+;   GTCFG.position:  TopCenter | TopRight | TopLeft | BottomCenter | BottomRight | BottomLeft
+;   GTCFG.animation: Slide | Fade | None
 ;
 ; Design notes (see docs/DEVELOPMENT.md for the full story):
-; - Rounded card centered at the top of the monitor under the mouse. It
-;   slides down with a slight overshoot, stays holdMs and slides up while
-;   fading out. Click it to dismiss.
+; - Rounded card on the monitor under the mouse (top center by default). It
+;   slides in from the nearest edge with a slight overshoot (or fades, or
+;   just appears), stays holdMs and leaves the same way. Click to dismiss.
 ; - The "glass" is a capture of the screen behind the card, blurred at 1/4
 ;   resolution and slightly saturated. Light/dark theme is picked from the
 ;   luminance of that background.
@@ -25,11 +28,12 @@
 ; ============================================================================
 
 GTCFG := {holdMs: 5000, inMs: 520, outMs: 300
-        , top: 18, h: 64, radius: 22, iconSize: 44
+        , top: 18, h: 64, radius: 22, iconSize: 44          ; top = gap to the screen edge
         , minW: 230, maxW: 400, shadowReach: 36
-        , blur: 60, saturation: 1.3}
+        , blur: 60, saturation: 1.3
+        , position: "TopCenter", animation: "Slide"}
 
-GT_KINDS := Map("ok", 0xFF30D158, "warn", 0xFFFF9F0A, "info", 0xFF0A84FF)
+GT_KINDS := Map("ok", 0xFF30D158, "warn", 0xFFFF9F0A, "info", 0xFF0A84FF, "update", 0xFF0A84FF)
 
 GT_THEMES := {
     dark:  {tint: 0x6618181C, title: 0xFFFFFFFF, sub: 0xCCEBEBF5, sheen: 0x24FFFFFF
@@ -40,8 +44,8 @@ GT_THEMES := {
           , outline: 0x14000000, accentIcon: 0.22, shadow: 0.55}
 }
 
-GT := {phase: "", t0: 0, holdUntil: 0, holdMs: 5000, x: 0, yVis: 0, yHid: 0
-     , winW: 0, H: 0, gui: 0, hwnd: 0}
+GT := {phase: "", t0: 0, holdUntil: 0, holdMs: 5000, anim: "Slide"
+     , xVis: 0, yVis: 0, xHid: 0, yHid: 0, winW: 0, H: 0, gui: 0, hwnd: 0}
 
 DllCall("LoadLibrary", "str", "winmm", "ptr")      ; keep timeBeginPeriod loaded
 OnMessage(0x201, GT_Click)                          ; WM_LBUTTONDOWN -> dismiss
@@ -51,6 +55,7 @@ GlassToast(title, sub, kind := "ok", holdMs := 5000) {
     Critical
     global GT, GTCFG, GT_THEMES, GT_KINDS
     GT_Free()                                       ; replace any visible toast
+    GT.anim := GTCFG.animation
     oldCtx := DllCall("SetThreadDpiAwarenessContext", "ptr", -4, "ptr")
     try {
         GT_Build(title, sub, GT_KINDS.Has(kind) ? kind : "ok")
@@ -58,17 +63,55 @@ GlassToast(title, sub, kind := "ok", holdMs := 5000) {
         DllCall("SetThreadDpiAwarenessContext", "ptr", oldCtx, "ptr")
     }
     GT.holdMs := holdMs
+    if (GT.anim = "None") {                         ; no animation: show, wait, remove
+        GT_Move(GT.xVis, GT.yVis, 255)
+        GT.phase := "hold", GT.holdUntil := A_TickCount + holdMs
+        SetTimer GT_Step, 50
+        return
+    }
     GT.phase := "in", GT.t0 := A_TickCount
     GT_HiRes(true)
     SetTimer GT_Step, 10
 }
 
+; Where the window rests and where it comes from (window coordinates; the
+; card sits `pad` inside the window because of the shadow). Slide comes in
+; from the nearest edge: top or bottom for the center, the side otherwise.
+GT_Placement(mL, mT, mR, mB, winW, winH, pad, edge, position, anim) {
+    cardW := winW - 2 * pad, cardH := winH - 2 * pad
+    left := InStr(position, "Left"), right := InStr(position, "Right"), bottom := InStr(position, "Bottom")
+    xVis := left ? mL + edge - pad : right ? mR - edge - cardW - pad : mL + (mR - mL - winW) // 2
+    yVis := bottom ? mB - edge - cardH - pad : mT + edge - pad
+    xHid := xVis, yHid := yVis
+    if (anim = "Slide") {
+        if left
+            xHid := mL - winW
+        else if right
+            xHid := mR
+        else if bottom
+            yHid := yVis + Round(cardH * 0.75)      ; rises a little: the taskbar is below
+        else
+            yHid := mT - winH
+    }
+    return {xVis: xVis, yVis: yVis, xHid: xHid, yHid: yHid}
+}
+
+GT_Move(x, y, alpha) {                              ; no bitmap: DWM reuses the surface
+    oldCtx := DllCall("SetThreadDpiAwarenessContext", "ptr", -4, "ptr")
+    pt := Buffer(8), NumPut("int", Round(x), "int", Round(y), pt)
+    blend := (Max(0, Min(255, Round(alpha))) << 16) | (1 << 24)
+    DllCall("UpdateLayeredWindow", "ptr", GT.hwnd, "ptr", 0, "ptr", pt, "ptr", 0
+          , "ptr", 0, "ptr", 0, "uint", 0, "uint*", blend, "uint", 2)
+    DllCall("SetThreadDpiAwarenessContext", "ptr", oldCtx, "ptr")
+}
+
 GT_Build(title, sub, kind) {
     global GT, GTCFG, GT_THEMES, GT_KINDS
 
-    ; Monitor under the mouse, its work area and its scale
+    ; Monitor under the mouse, its work area, its full area and its scale
     mon := GT_MouseMonitor()
     MonitorGetWorkArea(mon, &mL, &mT, &mR, &mB)
+    MonitorGet(mon, &fL, &fT, &fR, &fB)
     S := GT_MonitorDpi(mon) / 96
     ch := Round(GTCFG.h * S), R := Round(GTCFG.radius * S)
     isz := Round(GTCFG.iconSize * S), m := (ch - isz) / 2
@@ -107,21 +150,23 @@ GT_Build(title, sub, kind) {
     pw := textX + Max(GT_MeasureW(g, title, fTitle, fmtL), GT_MeasureW(g, sub, fSub, fmtL)) + 24 * S
     pw := Round(Max(GTCFG.minW * S, Min(GTCFG.maxW * S, pw)))
     winW := pw + 2 * PAD
-    GT.x := mL + (mR - mL - winW) // 2
-    GT.yVis := mT + Round(GTCFG.top * S) - PAD
-    GT.yHid := mT - canvH
+    pos := GT_Placement(mL, mT, mR, mB, winW, canvH, PAD, Round(GTCFG.top * S), GTCFG.position, GT.anim)
+    GT.xVis := pos.xVis, GT.yVis := pos.yVis, GT.xHid := pos.xHid, GT.yHid := pos.yHid
     GT.winW := winW, GT.H := canvH
 
-    ; Background: capture the card area (final position) and blur it
-    marg := Round(90 * S)                          ; margin > blur radius: clean edges
-    capX := GT.x + PAD - marg, capY := Max(mT, GT.yVis + PAD - marg)
-    capW := pw + 2 * marg, capH := (GT.yVis + PAD + ch + marg) - capY
+    ; Background: capture the card area (final position) and blur it. The
+    ; margin is larger than the blur radius (clean edges), but the capture
+    ; stays on this monitor.
+    marg := Round(90 * S)
+    cardX := GT.xVis + PAD, cardY := GT.yVis + PAD
+    capX := Max(fL, cardX - marg), capY := Max(fT, cardY - marg)
+    capW := Min(fR, cardX + pw + marg) - capX, capH := Min(fB, cardY + ch + marg) - capY
     th := GT_THEMES.dark
-    blurred := GT_CaptureBlur(capX, capY, capW, capH, S, marg, GT.yVis + PAD - capY, ch, pw, &th)
+    blurred := GT_CaptureBlur(capX, capY, capW, capH, S, cardX - capX, cardY - capY, ch, pw, &th)
     tex := 0
     DllCall("gdiplus\GdipCreateTexture", "ptr", blurred, "int", 0, "ptr*", &tex)
     DllCall("gdiplus\GdipTranslateTextureTransform", "ptr", tex
-          , "float", capX - GT.x, "float", capY - GT.yVis, "int", 0)
+          , "float", capX - GT.xVis, "float", capY - GT.yVis, "int", 0)
 
     ; --- Draw (once) ---
     x := PAD, y := PAD, w := pw, h := ch
@@ -152,9 +197,10 @@ GT_Build(title, sub, kind) {
     GT_StrokeGrad(g, ip, ix, iy, isz, isz, [0x66FFFFFF, 0x0DFFFFFF, 0x26FFFFFF], [0, 0.5, 1], 1)
     DllCall("gdiplus\GdipDeletePath", "ptr", ip)
     switch kind {
-        case "warn": GT_Exclaim(g, ix, iy, isz, 0xFFFFFFFF)
-        case "info": GT_PauseBars(g, ix, iy, isz, 0xFFFFFFFF)
-        default:     GT_Check(g, ix, iy, isz, 0xFFFFFFFF)
+        case "warn":   GT_Exclaim(g, ix, iy, isz, 0xFFFFFFFF)
+        case "info":   GT_PauseBars(g, ix, iy, isz, 0xFFFFFFFF)
+        case "update": GT_DownArrow(g, ix, iy, isz, 0xFFFFFFFF)
+        default:       GT_Check(g, ix, iy, isz, 0xFFFFFFFF)
     }
 
     ; Texts
@@ -177,7 +223,7 @@ GT_Build(title, sub, kind) {
     gw := Gui("-Caption +AlwaysOnTop +ToolWindow +E0x80000 +E0x08000000")   ; layered + no-activate
     gw.Show("NA x-32000 y-32000 w1 h1")
     GT.gui := gw, GT.hwnd := gw.Hwnd
-    pt := Buffer(8), NumPut("int", GT.x, "int", GT.yHid, pt)
+    pt := Buffer(8), NumPut("int", GT.xHid, "int", GT.yHid, pt)
     sz := Buffer(8), NumPut("int", winW, "int", canvH, sz)
     src := Buffer(8, 0)
     DllCall("UpdateLayeredWindow", "ptr", GT.hwnd, "ptr", 0, "ptr", pt, "ptr", sz
@@ -206,7 +252,9 @@ GT_Step() {
     switch GT.phase {
         case "in":
             p := Min((now - GT.t0) / GTCFG.inMs, 1)
-            y := GT.yHid + (GT.yVis - GT.yHid) * GT_EaseOutBack(p, 1.15)
+            e := GT.anim = "Slide" ? GT_EaseOutBack(p, 1.15) : GT_EaseOutCubic(p)
+            x := GT.xHid + (GT.xVis - GT.xHid) * e
+            y := GT.yHid + (GT.yVis - GT.yHid) * e
             a := 255 * GT_EaseOutCubic(p)
             if (p >= 1)
                 GT.phase := "hold", GT.holdUntil := now + GT.holdMs
@@ -215,8 +263,13 @@ GT_Step() {
                 GT.phase := "out", GT.t0 := now
             return
         case "out":
+            if (GT.anim = "None") {
+                GT_Free()
+                return
+            }
             p := Min((now - GT.t0) / GTCFG.outMs, 1)
             e := GT_EaseInCubic(p)
+            x := GT.xVis + (GT.xHid - GT.xVis) * e
             y := GT.yVis + (GT.yHid - GT.yVis) * e
             a := 255 * (1 - e)
             if (p >= 1) {
@@ -227,13 +280,7 @@ GT_Step() {
             SetTimer GT_Step, 0
             return
     }
-    ; No bitmap (hdcSrc NULL): DWM reuses the surface it already has
-    oldCtx := DllCall("SetThreadDpiAwarenessContext", "ptr", -4, "ptr")
-    pt := Buffer(8), NumPut("int", GT.x, "int", Round(y), pt)
-    blend := (Max(0, Min(255, Round(a))) << 16) | (1 << 24)
-    DllCall("UpdateLayeredWindow", "ptr", GT.hwnd, "ptr", 0, "ptr", pt, "ptr", 0
-          , "ptr", 0, "ptr", 0, "uint", 0, "uint*", blend, "uint", 2)
-    DllCall("SetThreadDpiAwarenessContext", "ptr", oldCtx, "ptr")
+    GT_Move(x, y, a)
 }
 
 GT_Click(wParam, lParam, msg, hwnd) {
@@ -276,6 +323,28 @@ GT_Exclaim(g, ix, iy, isz, col) {          ; "!" for warnings
     DllCall("gdiplus\GdipDeleteBrush", "ptr", br)
 }
 
+GT_DownArrow(g, ix, iy, isz, col) {        ; arrow into a tray, for updates
+    pen := 0
+    DllCall("gdiplus\GdipCreatePen1", "uint", col, "float", isz * 0.09, "int", 2, "ptr*", &pen)
+    DllCall("gdiplus\GdipSetPenStartCap", "ptr", pen, "int", 2)
+    DllCall("gdiplus\GdipSetPenEndCap", "ptr", pen, "int", 2)
+    DllCall("gdiplus\GdipSetPenLineJoin", "ptr", pen, "int", 2)
+    DllCall("gdiplus\GdipDrawLine", "ptr", g, "ptr", pen
+          , "float", ix + isz * 0.5, "float", iy + isz * 0.25, "float", ix + isz * 0.5, "float", iy + isz * 0.58)
+    pts := Buffer(24)
+    NumPut("float", ix + isz * 0.36, "float", iy + isz * 0.45
+         , "float", ix + isz * 0.5,  "float", iy + isz * 0.59
+         , "float", ix + isz * 0.64, "float", iy + isz * 0.45, pts)
+    DllCall("gdiplus\GdipDrawLines", "ptr", g, "ptr", pen, "ptr", pts, "int", 3)
+    tray := Buffer(32)
+    NumPut("float", ix + isz * 0.3, "float", iy + isz * 0.64
+         , "float", ix + isz * 0.3, "float", iy + isz * 0.73
+         , "float", ix + isz * 0.7, "float", iy + isz * 0.73
+         , "float", ix + isz * 0.7, "float", iy + isz * 0.64, tray)
+    DllCall("gdiplus\GdipDrawLines", "ptr", g, "ptr", pen, "ptr", tray, "int", 4)
+    DllCall("gdiplus\GdipDeletePen", "ptr", pen)
+}
+
 GT_PauseBars(g, ix, iy, isz, col) {        ; "||" for paused
     bw := isz * 0.12, bh := isz * 0.40, gap := isz * 0.10
     x0 := ix + isz / 2 - gap / 2 - bw, y0 := iy + (isz - bh) / 2
@@ -287,6 +356,7 @@ GT_PauseBars(g, ix, iy, isz, col) {        ; "||" for paused
 }
 
 ; Screen capture + blur at 1/4 resolution + saturation; picks the theme by luminance
+; (B, cardTop = position of the card inside the captured area)
 GT_CaptureBlur(capX, capY, capW, capH, S, B, cardTop, ch, pw, &th) {
     global GTCFG, GT_THEMES
     hdcS := DllCall("GetDC", "ptr", 0, "ptr")

@@ -1,0 +1,21 @@
+name: Question
+description: Ask anything about using the app
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Check the [FAQ](https://github.com/Ricardokraus/Win11-Key-Remapper#faq) first — your answer may be there.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+
+  - type: input
+    id: setup
+    attributes:
+      label: Laptop model and Windows version (if relevant)
+      placeholder: Acer Nitro V 16S AI (ANV16S-41), Windows 11 24H2

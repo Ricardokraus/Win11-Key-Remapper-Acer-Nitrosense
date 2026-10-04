@@ -7,7 +7,8 @@ body:
     attributes:
       value: |
         Thanks! Reports that it does **not** work are just as useful.
-        The key codes come from the app itself: tray icon → Settings… → **Detect key…** → press the key.
+        The key codes come from the app itself: tray icon → Settings… → **Change…** next to *Key* → press the key.
+        The codes appear on the right of the key (for example `VK FF · SC 175`).
 
   - type: input
     id: model
@@ -41,12 +42,12 @@ body:
   - type: textarea
     id: codes
     attributes:
-      label: Codes shown by the detector
+      label: Codes shown in the settings window
       description: One line per special key you tried (NitroSense key, Fn+Win / Win Lock, other vendor keys).
       placeholder: |
-        NitroSense key: NitroSense key · VK FF SC 175
-        Fn+Win (Win Lock on): Win Lock on · VK FF SC 159
-        Fn+Win (Win Lock off): Win Lock off · VK FF SC 162
+        NitroSense key: VK FF · SC 175
+        Fn+Win (Win Lock on): VK FF · SC 159
+        Fn+Win (Win Lock off): VK FF · SC 162
     validations:
       required: true
 

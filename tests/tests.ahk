@@ -75,7 +75,7 @@ IniDelete(SETTINGS_PATH, "Launcher", "LaunchMods")
 Eq(JoinMods(LoadSettings(SETTINGS_PATH).launchMods), "RCtrl", "missing LaunchMods -> default")
 
 p2 := tmp "\roadmap.ini"
-FileAppend("[Remap]`r`nSourceVK=0x41          `; key to remap`r`nSourceSC=0x1E`r`nMatchSC=0`r`nMode=key  `; lower case`r`nTargetMods=lctrl, Shift`r`nTargetVK=0x43`r`nTargetSC=junk`r`n[Launcher]`r`nLaunchEnabled=0`r`nLaunchPath=`r`n[General]`r`nShowToast=no`r`n", p2)
+FileAppend("[Remap]`r`nSourceVK=0x41          `; key to remap`r`nSourceSC=0x1E`r`nMatchSC=0`r`nMode=key  `; lower case`r`nTargetMods=lctrl, Shift`r`nTargetVK=0x43`r`nTargetSC=junk`r`n[Launcher]`r`nLaunchEnabled=0`r`nLaunchPath=`r`n[General]`r`nShowToast=no`r`nTheme=dark`r`nToastPosition=bottomright`r`nToastAnimation=Spin`r`nTrayIcon=0`r`n", p2)
 c := LoadSettings(p2)
 Eq(c.sourceVK, 0x41, "inline comment stripped")
 Eq(c.matchSC, 0, "MatchSC=0")
@@ -86,10 +86,14 @@ Eq(c.launchEnabled, 0, "LaunchEnabled=0")
 Eq(c.launchPath, "auto", "empty LaunchPath -> auto")
 Eq(c.launchVK, 0xFF, "missing LaunchVK -> default")
 Eq(c.showToast, 0, "ShowToast=no")
+Eq(c.theme, "Dark", "Theme normalized")
+Eq(c.toastPosition " " c.toastAnim " " c.trayIcon " " c.checkUpdates, "BottomRight Slide 0 1", "toast/tray/update settings")
+Eq(LoadSettings(SETTINGS_PATH).theme, "System", "default Theme")
 
 c := LoadSettings(A_ScriptDir "\..\settings.example.ini"), d := DefaultSettings()
 for key in ["sourceVK", "sourceSC", "matchSC", "mode", "targetVK", "targetSC", "launchEnabled"
-          , "launchVK", "launchSC", "launchAnySide", "launchPath", "showToast"]
+          , "launchVK", "launchSC", "launchAnySide", "launchPath", "showToast", "toastPosition"
+          , "toastAnim", "trayIcon", "checkUpdates", "theme"]
     Eq(c.%key% "", d.%key% "", "settings.example.ini matches defaults: " key)
 Eq(JoinMods(c.targetMods) "|" JoinMods(c.launchMods), JoinMods(d.targetMods) "|" JoinMods(d.launchMods), "settings.example.ini mods")
 
@@ -107,6 +111,40 @@ Eq(KeyLabel(0xFF, 0x1AB), "Special key (SC 1AB)", "unknown vendor key")
 Eq(KeyLabel(0xA3, 0x11D), "Right Ctrl", "right ctrl")
 Eq(ComboLabel(["LCtrl", "RCtrl"], 0xFF, 0x175, true), "Ctrl + NitroSense key", "any side dedupe")
 Eq(Summary(DefaultSettings()), "NitroSense key → Num Lock", "summary")
+
+; ---- 2b. Toast placement, updates ----
+; work area 0,0-1000,700; window 300x100 with a 20 px shadow pad; 10 px from the edges
+P(pos, anim) {
+    r := GT_Placement(0, 0, 1000, 700, 300, 100, 20, 10, pos, anim)
+    return r.xVis "," r.yVis " " r.xHid "," r.yHid
+}
+Eq(P("TopCenter", "Slide"), "350,-10 350,-100", "toast top center slides from the top")
+Eq(P("TopRight", "Slide"), "710,-10 1000,-10", "toast top right slides from the right")
+Eq(P("TopLeft", "Slide"), "-10,-10 -300,-10", "toast top left slides from the left")
+Eq(P("BottomCenter", "Slide"), "350,610 350,655", "toast bottom center rises")
+Eq(P("BottomRight", "Fade"), "710,610 710,610", "toast fade stays in place")
+Eq(P("BottomLeft", "None"), "-10,610 -10,610", "toast none stays in place")
+c := DefaultSettings(), c.toastPosition := "BottomLeft", c.toastAnim := "Fade"
+Reset(c)
+Eq(GTCFG.position " " GTCFG.animation, "BottomLeft Fade", "toast style applied")
+Reset(DefaultSettings())
+
+Check(VersionNewer("v0.3.0", "0.2.0") && VersionNewer("v1.0.0", "0.9.9") && VersionNewer("0.2.10", "0.2.9"), "newer versions")
+Check(!VersionNewer("v0.2.0", "0.2.0") && !VersionNewer("v0.1.9", "0.2.0") && !VersionNewer("garbage", "0.2.0"), "not newer")
+rel := ParseRelease('{"url":"x","html_url":"https://github.com/o/r/releases/tag/v0.3.0","tag_name":"v0.3.0","author":{"html_url":"https://github.com/o"},'
+    . '"assets":[{"name":"SHA256SUMS.txt","browser_download_url":"https://github.com/o/r/releases/download/v0.3.0/SHA256SUMS.txt"},'
+    . '{"name":"Win11KeyRemapper-v0.3.0.zip","browser_download_url":"https://github.com/o/r/releases/download/v0.3.0/Win11KeyRemapper-v0.3.0.zip"}]}')
+Eq(rel.tag, "v0.3.0", "release tag")
+Eq(rel.page, "https://github.com/o/r/releases/tag/v0.3.0", "release page")
+Check(InStr(rel.zip, "/Win11KeyRemapper-v0.3.0.zip") && InStr(rel.sums, "/SHA256SUMS.txt"), "release assets")
+FileAppend("abc", tmp "\abc.txt")
+Eq(Sha256File(tmp "\abc.txt"), "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "sha256")
+Eq(Sha256File(tmp "\missing.txt"), "", "sha256 of a missing file")
+FileAppend("BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD  Win11KeyRemapper.exe`r`n"
+         . "0000000000000000000000000000000000000000000000000000000000000000  Win11KeyRemapper-v9.zip`r`n", tmp "\sums.txt")
+sums := ReadSums(tmp "\sums.txt")
+Eq(sums.Count " " sums["Win11KeyRemapper.exe"], "2 ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad", "read sums")
+Eq(ParseArgs().restartPid " " ParseArgs().updated, "0 0", "no command-line arguments")
 
 ; ---- 3. Precomputed rules ----
 c := DefaultSettings(), c.mode := "Key", c.targetVK := 0x41, c.targetSC := 0x1E
@@ -248,17 +286,33 @@ Reset(DefaultSettings())
 NS.checked := true, NS.target := ""
 ShowSettings()
 Check(UI.gui, "gui created")
-Eq(UI.srcEdit.Value, "NitroSense key · VK FF SC 175", "gui: source field")
-Eq(UI.launchEdit.Value, "Right Ctrl + NitroSense key · VK FF SC 175", "gui: launch field")
+Eq(UI.keyText["source"], "NitroSense key", "gui: source keys")
+Eq(UI.keyText["launch"], "Right Ctrl + NitroSense key", "gui: launch keys")
 Eq(UI.mode.Value, 1, "gui: mode")
-Check(!UI.targetBtn.Enabled, "gui: target disabled for toggles")
-Check(InStr(UI.hint.Value, "not found"), "gui: hint not found")
+Check(UI.actionInfo.Visible && InStr(UI.actionInfo.Value, "Num Lock on or off"), "gui: action explained")
+Check(!UI.targetBtn.Visible && !UI.targetKeys.Visible, "gui: no target row for toggles")
+Check(InStr(UI.appStatus.Value, "Not found"), "gui: app not found")
+Check(InStr(UI.status.Value, "Active · NitroSense key → Num Lock"), "gui: status line")
+Eq(UI.tgState["launchEnabled"] UI.tgState["launchAnySide"] UI.tgState["showToast"] UI.tgState["matchSC"]
+ . UI.tgState["trayIcon"] UI.tgState["checkUpdates"] UI.tgState["autostart"], "1011110", "gui: switches")
+Eq(UI.toastPos.Value " " UI.toastAnim.Value " " UI.theme.Value, "1 1 1", "gui: notification and theme lists")
+Eq(UI.updBtn.Text, "Check now", "gui: update button")
+DRAFT.toastPosition := "BottomRight", DRAFT.toastAnim := "Fade"
+PreviewToast()
+Check(InStr(TOASTS[TOASTS.Length], "Bottom right · Fade in") && GTCFG.position = "TopCenter", "gui: test notification uses the draft, then restores")
+RefreshSettings()
+Eq(UI.toastPos.Value " " UI.toastAnim.Value, "5 2", "gui: lists follow the draft")
+UPD.state := "available", UPD.latest := "v9.9.9"
+UpdateUpdatesRow()
+Check(UI.updBtn.Text = "Download v9.9.9" && InStr(UI.updText.Value, "new version"), "gui: update available (from source: download)")
+UPD.state := "", UPD.latest := ""
+UpdateUpdatesRow()
 CaptureToggle("source")
-Eq(UI.srcBtn.Text, "Listening…", "gui: listening label")
-Eq(UI.srcEdit.Value, LISTEN_TEXT, "gui: listening text")
+Eq(UI.srcBtn.Text, "Cancel", "gui: listening button")
+Eq(UI.keyText["source"], "listening", "gui: listening keys")
 CaptureToggle("source")
 Check(!CAP.active, "gui: click again cancels")
-Eq(UI.srcBtn.Text, "Detect key…", "gui: label restored")
+Eq(UI.srcBtn.Text, "Change…", "gui: label restored")
 CaptureToggle("source")
 CaptureToggle("target")
 Eq(CAP.target, "target", "gui: other capture replaces")
@@ -268,12 +322,13 @@ Ev(0x41, 0x1E)
 CaptureDone()
 Ev(0x41, 0x1E, true)
 Eq(DRAFT.sourceVK, 0x41, "gui: detected source stored in draft")
-Eq(UI.srcEdit.Value, "A · VK 41 SC 1E", "gui: source field updated")
+Eq(UI.keyText["source"], "A", "gui: source keys updated")
 Eq(CFG.sourceVK, 0xFF, "gui: CFG untouched until Save")
 UI.mode.Value := 4
 OnModeChange(UI.mode)
-Check(UI.targetBtn.Enabled, "gui: target enabled for Key")
-Check(InStr(ValidateSettings(DRAFT), "press instead"), "validate: Key needs target")
+Check(UI.targetBtn.Visible && !UI.actionInfo.Visible, "gui: target row for Key")
+Eq(UI.keyText["target"], "Not set", "gui: target not set")
+Check(InStr(ValidateSettings(DRAFT), "next to Sends"), "validate: Key needs target")
 d := DefaultSettings(), d.launchMods := []
 Check(InStr(ValidateSettings(d), "never run"), "validate: launcher = source without modifier")
 d := DefaultSettings(), d.launchVK := 0
@@ -281,27 +336,36 @@ Check(InStr(ValidateSettings(d), "shortcut that opens"), "validate: launcher nee
 d := DefaultSettings(), d.launchPath := "C:\nope\nope.exe"
 Check(InStr(ValidateSettings(d), "not found"), "validate: missing app")
 Eq(ValidateSettings(DefaultSettings()), "", "validate: defaults ok")
-UI.path.Value := "C:\nope\nope.exe"
-OnPathChange()
-Check(InStr(UI.hint.Value, "File not found"), "gui: custom path hint")
-UI.path.Value := "", OnPathChange()
-Eq(DRAFT.launchPath, "auto", "gui: empty path = auto")
+DRAFT.launchPath := "C:\nope\nope.exe", UpdateApp()
+Check(UI.appName.Value = "nope.exe" && InStr(UI.appStatus.Value, "File not found"), "gui: custom app missing")
+AutoApp()
+Eq(DRAFT.launchPath, "auto", "gui: Auto = auto-detect")
+FlipSwitch("launchAnySide")
+Eq(UI.keyText["launch"], "Ctrl + NitroSense key", "gui: any side shown")
 ResetDraft()
-Eq(DRAFT.sourceVK, 0xFF, "gui: reset defaults")
+Eq(DRAFT.sourceVK " " DRAFT.launchAnySide, 0xFF " 0", "gui: reset defaults")
 DRAFT.mode := "CapsLock"
-UI.launchOn.Value := 0
-OnLaunchToggle(UI.launchOn)
-Check(!UI.launchBtn.Enabled && !UI.path.Enabled, "gui: launcher controls disabled")
+FlipSwitch("launchEnabled")
+Check(!DRAFT.launchEnabled && !UI.launchBtn.Enabled && !UI.browse.Enabled && !UI.tg["launchAnySide"].Enabled, "gui: launcher controls disabled")
+FlipSwitch("launchAnySide")
+Eq(DRAFT.launchAnySide, 0, "gui: disabled switch can't flip")
+FlipSwitch("autostart"), FlipSwitch("autostart")
+Eq(UI.autostartOn, 0, "gui: autostart switch")
+DRAFT.theme := UI.themeName = "dark" ? "Light" : "Dark"
+RebuildSettings()
+Check(UI.gui && UI.themeName = StrLower(DRAFT.theme) && DRAFT.mode = "CapsLock", "gui: theme rebuild keeps the draft")
 SaveFromGui()
 Check(!UI.gui, "gui: closed after save")
 Eq(CFG.mode, "CapsLock", "save: applied")
 Eq(RT.launchOn, false, "save: launcher off applied")
-Eq(LoadSettings(SETTINGS_PATH).mode, "CapsLock", "save: written to ini")
+c := LoadSettings(SETTINGS_PATH)
+Eq(c.mode " " c.theme, "CapsLock " CFG.theme, "save: written to ini")
 Check(TOASTS.Length && InStr(TOASTS[TOASTS.Length], "Settings saved | NitroSense key → Caps Lock"), "save: toast")
 Check(!FileExist(APP.lnk), "save: autostart untouched")
+CFG.theme := "System"
 
 ShowSettings(true)
-Eq(UI.autostart.Value, 1, "first run: autostart pre-checked")
+Eq(UI.autostartOn, 1, "first run: autostart pre-checked")
 SaveFromGui()
 Check(FileExist(APP.lnk), "first run: shortcut created")
 FileGetShortcut(APP.lnk, &lnkTarget, , &lnkArgs)
@@ -317,6 +381,15 @@ TogglePause()
 Check(!PAUSED, "pause off")
 ToggleAutostart()
 Check(!FileExist(APP.lnk), "tray: autostart off")
+UPD.latest := "v9.9.9"
+UpdateDone("available", false)
+Check(UPD.trayItem = "Install update v9.9.9…" && InStr(TOASTS[TOASTS.Length], "Update available: v9.9.9"), "tray: update offered")
+n := TOASTS.Length
+UpdateDone("available", false)
+Eq(TOASTS.Length, n, "tray: same update not announced twice")
+UpdateDone("latest", true)
+Check(UPD.trayItem = "Check for updates" && InStr(TOASTS[TOASTS.Length], "up to date"), "tray: up to date")
+UPD.state := ""
 
 ; ---- 9. NitroSense detection (real machine) ----
 Note("NitroSense auto-detect -> [" DetectNitroSense(true) "] " NS.label)

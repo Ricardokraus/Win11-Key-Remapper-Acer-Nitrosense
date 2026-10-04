@@ -36,12 +36,14 @@ $code = [IO.File]::ReadAllText((Join-Path $root 'src\Win11KeyRemapper.ahk'))
 # Every patch must apply: a missed one could send real keys from the tests
 $patches = [ordered]@{
     '^Main\(\)\s*$'                                 = '; (test) Main() removed'
-    'g\.Show\("AutoSize"\)'                         = 'g.Show("AutoSize Hide")'
+    'g\.Show\(showOpts\)'                           = 'g.Show(showOpts " Hide")'
+    'g\.Show\(\)'                                   = 'g.Show("Hide")'
     'SetTimer\(RunQueue, -1\)'                      = '; (test) RunQueue is not scheduled'
     '\bGlassToast\('                                = 'TestToast('
     '\bMsgBox\('                                    = 'TestToast('
     '\bSendInput\('                                 = 'TestSend('
     '\bRun\('                                       = 'TestRun('
+    '\bDownload\('                                  = 'TestRun('
     '\bSet(NumLock|CapsLock|ScrollLock)State\('     = 'TestLock('
 }
 foreach ($p in $patches.GetEnumerator()) {

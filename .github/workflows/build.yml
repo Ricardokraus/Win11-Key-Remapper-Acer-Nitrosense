@@ -8,11 +8,15 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # publish releases on tags
+  contents: write   # create and publish releases on tags
 
 jobs:
   build:
     runs-on: windows-latest
+    env:
+      # Optional: a free VirusTotal API key saved as a repository secret adds
+      # scan links to the release notes. Without it that step is skipped.
+      VT_API_KEY: ${{ secrets.VT_API_KEY }}
     defaults:
       run:
         shell: pwsh
@@ -93,12 +97,44 @@ jobs:
             dist/SHA256SUMS.txt
           retention-days: 14
 
-      - name: Publish release
+      - name: Scan with VirusTotal
+        id: virustotal
+        if: github.ref_type == 'tag' && env.VT_API_KEY != ''
+        uses: crazy-max/ghaction-virustotal@v5
+        with:
+          vt_api_key: ${{ env.VT_API_KEY }}
+          files: |
+            dist/Win11KeyRemapper.exe
+
+      # Draft first, assets attached, then published: works with immutable releases
+      - name: Create release (draft)
+        id: release
         if: github.ref_type == 'tag'
         uses: softprops/action-gh-release@v3
         with:
+          draft: true
           files: |
             dist/${{ steps.package.outputs.name }}.zip
             dist/SHA256SUMS.txt
           generate_release_notes: true
           fail_on_unmatched_files: true
+
+      - name: Publish release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_ID: ${{ steps.release.outputs.id }}
+          ANALYSIS: ${{ steps.virustotal.outputs.analysis }}
+        run: |
+          $api = "repos/$env:GITHUB_REPOSITORY/releases/$env:RELEASE_ID"
+          if ($env:ANALYSIS) {
+            $body = gh api $api --jq .body
+            $links = foreach ($pair in $env:ANALYSIS -split ',') {
+              $file, $url = $pair -split '=', 2
+              "- [$file]($url)"
+            }
+            @($body, '', '### VirusTotal scan', '', $links) | Set-Content notes.md -Encoding utf8
+            gh api -X PATCH $api -F body=@notes.md | Out-Null
+          }
+          gh api -X PATCH $api -F draft=false -f make_latest=true | Out-Null
+          if ($LASTEXITCODE) { exit 1 }

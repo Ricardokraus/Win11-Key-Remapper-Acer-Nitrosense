@@ -6,14 +6,17 @@ project already fell into. Read this before changing the hook or the toast.
 ## Layout
 
 ```
-src/Win11KeyRemapper.ahk     the app: settings, hook, detector, tray, settings window
+src/Win11KeyRemapper.ahk     the app: settings, hook, detector, tray, updates, settings window
 src/lib/GlassToast.ahk       "liquid glass" notification (standalone library)
 tests/run-tests.ps1          builds a patched copy of the app and runs tests/tests.ahk
 tests/tests.ahk              logic tests (fake key events fed to the hook procedure)
 tools/make-icon.ps1          regenerates assets/icon.ico
-assets/icon.ico, banner.svg
+assets/                      icon.ico, banner.svg, social-preview.png, screenshot-*.png
 settings.example.ini         documented defaults (a test checks it matches the code)
-.github/workflows/build.yml  syntax check, tests, compile, zip, release on tag v*
+.github/workflows/build.yml  syntax check, tests, compile, zip, VirusTotal, release on tag v*
+.github/ISSUE_TEMPLATE/      bug, "works on my laptop", feature, question
+.github/dependabot.yml       monthly PRs to update the GitHub Actions
+SECURITY.md, CONTRIBUTING.md, CHANGELOG.md
 ```
 
 ## Everyday commands
@@ -25,7 +28,8 @@ AutoHotkey64.exe /ErrorStdOut /Validate src\Win11KeyRemapper.ahk
 # Logic tests: no hook is installed, no keys are sent, nothing is shown
 powershell -ExecutionPolicy Bypass -File tests\run-tests.ps1
 
-# Run from source (close any compiled copy first: two hooks would fight)
+# Run from source. If a copy is already running (source or exe), this one
+# just asks it to open its settings and exits; use tray → Restart instead.
 AutoHotkey64.exe src\Win11KeyRemapper.ahk
 
 # Regenerate the icon (add -Preview preview.png to see every size)
@@ -37,10 +41,11 @@ Ahk2Exe.exe /in src\Win11KeyRemapper.ahk /out dist\Win11KeyRemapper.exe /base C:
 
 When you run from source, `settings.ini` is created in `src\` (gitignored).
 
-The tests patch the app before running it: startup (`Main()`) is removed and
-`SendInput`, `Run`, `Set*LockState`, `GlassToast` and `MsgBox` are replaced by
-stubs. `run-tests.ps1` refuses to run if one of those patches no longer applies,
-so renaming those calls means updating the patch list too.
+The tests patch the app before running it: startup (`Main()`) is removed, the
+settings window is created hidden and `SendInput`, `Run`, `Download`,
+`Set*LockState`, `GlassToast` and `MsgBox` are replaced by stubs. `run-tests.ps1`
+refuses to run if one of those patches no longer applies, so renaming those calls
+means updating the patch list too.
 
 ## How the hook works
 
@@ -101,6 +106,70 @@ Rules:
 - It runs before the rules and even while paused, so the NitroSense key itself can
   be detected. 10 s timeout; clicking the button again cancels.
 
+## The settings window
+
+- Standard Win32 controls can't draw rounded cards, keycaps or switches, so those
+  are drawn with GDI+ (reusing the toast library's helpers): the cards are one
+  bitmap painted on `WM_ERASEBKGND`; each key view and switch is a Picture
+  control whose bitmap `RefreshSettings` redraws. Bitmaps are opaque (drawn on
+  the card color), so ClearType text works and static controls need no alpha.
+- Layout is in logical pixels; Windows scales the window by DPI and the bitmaps
+  are rendered at `A_ScreenDPI / 96`. Two columns keep the window under ~540 px
+  high, so it fits 1080p screens at 150 %.
+- Edits go to `DRAFT`; *Save* validates, writes `settings.ini` and applies
+  everything without restarting.
+- **Light/dark**: `Theme=System` reads `AppsUseLightTheme`. Dark mode uses the
+  undocumented but widely used uxtheme exports (ordinals 133
+  `AllowDarkModeForWindow`, 135 `SetPreferredAppMode`, 136 `FlushMenuThemes`) for
+  the tray menu and controls, `SetWindowTheme` with `DarkMode_Explorer` (buttons)
+  and `DarkMode_CFD` (drop-down lists), `WM_CTLCOLORLISTBOX` for the open lists,
+  and `DwmSetWindowAttribute` 20 (dark title bar) / 35 (caption color, Windows
+  11). When Windows switches mode (`WM_SETTINGCHANGE` "ImmersiveColorSet") the
+  window is rebuilt at the same place.
+- Switch labels are clickable; switches can't take keyboard focus (they're
+  pictures). Buttons, lists and Esc/Enter work as usual.
+
+## One copy at a time, restart, hidden tray icon
+
+- `#SingleInstance Off`: at startup the app looks for a hidden AutoHotkey main
+  window titled `Win11KeyRemapper.Instance` (it renames its own). If another copy
+  exists, it posts it a registered message ("open your settings") and exits. That
+  is how users reach the settings when the tray icon is hidden, and it also stops
+  a source copy and an exe copy from running two hooks.
+- *Restart* (and an update) starts the app again with `--restart <old pid>`: the
+  new copy waits for the old one to exit before installing its hook, and skips the
+  "already running" check.
+
+## Updates
+
+- `CheckUpdates()` asks `api.github.com/repos/.../releases/latest` with
+  `WinHttp.WinHttpRequest` in **async** mode and polls it with a timer: a blocking
+  request would stall the keyboard hook. Automatic checks run 1 minute after
+  startup and then every 24 h (`CheckUpdates=1`).
+- The JSON is read with three regexes (`tag_name`, the release `html_url`, the
+  `browser_download_url` of the zip and of `SHA256SUMS.txt`). Version comparison
+  is numeric (`VersionNewer`).
+- *Install* (compiled exe in a writable folder only): `Download()` the zip and
+  `SHA256SUMS.txt` (blocking, but the user asked for it; the hook is reinstalled
+  right after), check the zip's SHA-256 (`BCryptHash`), unzip with
+  `Shell.Application`, check the new exe's SHA-256, rename the running exe to
+  `.old` (Windows allows renaming a running exe), copy the new one in place,
+  start it with `--restart <pid> --updated` and exit. The next start deletes the
+  `.old` file. From source, or if anything fails, the release page opens instead.
+- The release assets' names are part of this contract: `Win11KeyRemapper-v*.zip`
+  containing `Win11KeyRemapper.exe`, and `SHA256SUMS.txt` with both files.
+
+## Notifications
+
+`GTCFG.position` (`TopCenter`, `TopRight`, `TopLeft`, `BottomCenter`,
+`BottomRight`, `BottomLeft`) and `GTCFG.animation` (`Slide`, `Fade`, `None`) are
+read when each toast is built. `GT_Placement` computes the resting position and
+where the toast comes from: *Slide* enters from the top edge (top center), rises a
+little (bottom center, so it doesn't cross the taskbar), or comes in from the side
+(left/right positions); *Fade* and *None* stay in place. The glass capture is
+clamped to the monitor. The settings window's test button builds a toast with the
+draft's style and restores `GTCFG` afterwards.
+
 ## Hard-won facts about the hardware (Acer Nitro V 16S AI, ANV16S-41)
 
 - The NitroSense key reports **VK `0xFF`, SC `0x175`**. Other Acer keys share
@@ -154,15 +223,21 @@ Rules:
    window would break on the second monitor.
 9. In Git Bash, `/ErrorStdOut` and `/Validate` get converted to paths
    (`C:/Program Files/Git/ErrorStdOut`). Call AutoHotkey from PowerShell or cmd.
+10. **`switch` is a keyword**: a function can't be called `Switch()`.
+11. **`try` without braces inside `if … else`** makes `else` attach to the `try`
+    ("Unexpected Else"). Use braces.
+12. **COM booleans are -1** (`VARIANT_TRUE`): don't use -1 as an error marker for
+    a COM call's result.
 
 ## The glass toast
 
 Design (user preferences): rounded card, not a pill; concentric icon tile (icon
 radius = card radius − margin); glass = blurred capture of what's behind
 (blur 60, saturation 1.3) with a tint per theme; light/dark theme from the
-background's luminance (the light theme uses softer colors). It slides down from
-the top center of the monitor under the mouse with a small overshoot, holds, and
-slides up while fading. Click dismisses it with the same animation.
+background's luminance (the light theme uses softer colors). By default it slides
+down from the top center of the monitor under the mouse with a small overshoot,
+holds, and slides up while fading; position and animation are configurable (see
+*Notifications* above). Click dismisses it with the same animation.
 
 Shown at startup, on session unlock (`WTS_SESSION_UNLOCK`) and when the display
 turns back on without a password (`GUID_CONSOLE_DISPLAY_STATE` 0 → 1, only if the
@@ -198,10 +273,14 @@ The tests cover the logic; this needs real keys:
 - [ ] NitroSense key → Num Lock toggles once per press, also when held.
 - [ ] Win Lock (Fn+Win) still works and doesn't touch Num Lock.
 - [ ] Right Ctrl + NitroSense key opens NitroSense; Left Ctrl + key toggles.
-- [ ] *Detect…* captures a single key, a combo, and a lone modifier (Right Ctrl).
+- [ ] *Change…* captures a single key, a combo, and a lone modifier (Right Ctrl).
 - [ ] `Mode=Key`: holding the key repeats the target; Shift+key gives Shift+target.
 - [ ] Save applies without restarting; Cancel discards.
-- [ ] Pause / resume from the tray.
+- [ ] Light, dark and *System* themes; switching Windows' mode with the window open.
+- [ ] Every notification position and animation, with *Show a test notification*.
+- [ ] Pause / resume and *Restart* from the tray.
+- [ ] Hide the tray icon, open the app again: the settings appear; turn it back on.
+- [ ] *Check now* (up to date / update available); *Install* on the exe.
 - [ ] Start with Windows: sign out and in, the app starts (exe and source).
 - [ ] Toast at startup, after unlock (Win+L) and after the display turns off/on.
 - [ ] Toast on a second monitor with a different scale isn't black.
@@ -210,12 +289,16 @@ The tests cover the logic; this needs real keys:
 ## Releasing
 
 1. Bump the version in `src/Win11KeyRemapper.ahk` (`;@Ahk2Exe-SetVersion` **and**
-   `APP.version`) and add a section to `CHANGELOG.md`.
-2. Commit, then tag and push: `git tag v0.2.0` and `git push origin main --tags`.
-3. The workflow refuses a tag that doesn't match `SetVersion`, builds, and
-   publishes the release with the zip and `SHA256SUMS.txt`.
+   `APP.version`), and in `CHANGELOG.md` replace "Unreleased" with the date.
+2. Commit, then tag and push: `git tag v0.2.0` and `git push origin v0.2.0`.
+3. The workflow refuses a tag that doesn't match `SetVersion`, builds, scans the
+   exe with VirusTotal (if the `VT_API_KEY` secret exists), creates the release as
+   a draft with the zip and `SHA256SUMS.txt`, adds the scan links to the notes and
+   publishes it. Doing it in that order also works with immutable releases.
+4. Running copies of the exe find the new version within a day (or with
+   *Check now*) and can install it in one click.
 
 ## Ideas for later (v0.3+)
 
-Multiple remap rules, Spanish UI, a community model list, update check, code
-signing (look into free signing programs for open source).
+Multiple remap rules, Spanish UI (and README), a community model list, code
+signing (SignPath and similar programs sign open-source projects for free).
