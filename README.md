@@ -313,7 +313,7 @@ More details in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 The release exe is the AutoHotkey v2 runtime with the script embedded in it,
 made by [Ahk2Exe](https://github.com/AutoHotkey/Ahk2Exe/releases). GitHub Actions
-builds it on every push; pushing a tag like `v0.2.0` publishes a release with the
+builds it on every push; pushing a tag like `v0.5.0` publishes a release with the
 zip and its SHA-256 sums.
 
 To build it yourself, one command does everything (it downloads AutoHotkey and

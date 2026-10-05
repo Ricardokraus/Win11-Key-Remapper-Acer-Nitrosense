@@ -1,5 +1,7 @@
 # v0.2 — first public release (spec)
 
+> Shipped as **v0.5.0**: the version number was raised before the release.
+
 Decisions taken with the user:
 
 - Name: **Windows 11 Key Remapper** (subtitle: *NitroSense Key Remapper*). Exe:

@@ -4,7 +4,7 @@ Persistent
 
 ;@Ahk2Exe-SetName Windows 11 Key Remapper
 ;@Ahk2Exe-SetDescription Windows 11 Key Remapper
-;@Ahk2Exe-SetVersion 0.2.0
+;@Ahk2Exe-SetVersion 0.5.0
 ;@Ahk2Exe-SetCopyright Copyright (c) 2026 Ricardo - MIT License
 ;@Ahk2Exe-SetOrigFilename Win11KeyRemapper.exe
 ;@Ahk2Exe-SetMainIcon ..\assets\icon.ico
@@ -32,7 +32,7 @@ Persistent
 
 #Include %A_ScriptDir%\lib\GlassToast.ahk
 
-APP := {name: "Windows 11 Key Remapper", short: "Key Remapper", version: "0.2.0"
+APP := {name: "Windows 11 Key Remapper", short: "Key Remapper", version: "0.5.0"
       , repo: "https://github.com/Ricardokraus/Win11-Key-Remapper"
       , api: "https://api.github.com/repos/Ricardokraus/Win11-Key-Remapper/releases/latest"
       , lnk: A_Startup "\Windows 11 Key Remapper.lnk"
@@ -53,7 +53,7 @@ MODE_LABELS := ["Press another key or shortcut", "Do nothing (disable the key)",
 ACTION_INFO := Map("Key", "Presses the key below instead. Num, Caps and Scroll Lock toggle once while held."
                  , "Disable", "The key does nothing at all."
                  , "None", "The key works as it normally would. The shortcut below still works.")
-; Before v0.2.0 the lock keys were modes of their own; they're now "press that key"
+; Before v0.5.0 the lock keys were modes of their own; they're now "press that key"
 LEGACY_MODES := Map("numlock", [0x90, 0x145], "capslock", [0x14, 0x3A], "scrolllock", [0x91, 0x46])
 LOCK_VKS     := Map(0x90, true, 0x14, true, 0x91, true)     ; a held lock key must not repeat
 THEME_PREFS := ["System", "Light", "Dark"]

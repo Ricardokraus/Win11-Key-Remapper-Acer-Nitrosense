@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses [Semantic Versioning](https://semver.org/).
 
-## [0.2.0] - Unreleased
+## [0.5.0] - Unreleased
 
 First public release.
 
@@ -70,4 +70,4 @@ First public release.
 - Compiled `Win11KeyRemapper.exe` built by GitHub Actions, with SHA-256 sums
   and optional VirusTotal scan links in the release notes.
 
-[0.2.0]: https://github.com/Ricardokraus/Win11-Key-Remapper/releases/tag/v0.2.0
+[0.5.0]: https://github.com/Ricardokraus/Win11-Key-Remapper/releases/tag/v0.5.0

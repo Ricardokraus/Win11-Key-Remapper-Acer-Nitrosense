@@ -432,7 +432,7 @@ The tests cover the logic; this needs real keys:
 
 1. Bump the version in `src/Win11KeyRemapper.ahk` (`;@Ahk2Exe-SetVersion` **and**
    `APP.version`), and in `CHANGELOG.md` replace "Unreleased" with the date.
-2. Commit, then tag and push: `git tag v0.2.0` and `git push origin v0.2.0`.
+2. Commit, then tag and push: `git tag v0.5.0` and `git push origin v0.5.0`.
 3. The workflow refuses a tag that doesn't match `SetVersion`, builds, scans the
    exe with VirusTotal (if the `VT_API_KEY` secret exists), creates the release as
    a draft with the zip and `SHA256SUMS.txt`, adds the scan links to the notes and
