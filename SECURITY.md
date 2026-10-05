@@ -3,7 +3,8 @@
 ## Supported versions
 
 Only the [latest release](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/releases/latest)
-gets fixes. The app can update itself (Settings → *Updates* → *Check now*).
+gets fixes. The app tells you when there's a new one (Settings → *Updates* →
+*Check now*); see [Updating](README.md#updating).
 
 ## Reporting a vulnerability
 
@@ -22,7 +23,9 @@ published as a security advisory with credit to you, if you want.
   Keys are only compared against your settings; nothing is logged, stored or
   sent anywhere.
 - It runs without admin rights and never asks for elevation.
-- Its only network access is the update check against GitHub's API, and, when
-  you choose to install an update, downloading the release zip from GitHub. The
-  download is verified against the release's `SHA256SUMS.txt` before the exe is
-  replaced.
+- Its only network access is the update check against GitHub's API. It never
+  downloads anything by itself: a new version is downloaded from the release
+  page in your browser, and each release lists the zip's SHA-256 in
+  `SHA256SUMS.txt`.
+- It's a plain AutoHotkey v2 script run by the signed `AutoHotkey64.exe`: what
+  runs is exactly the source you can read in `src\`.

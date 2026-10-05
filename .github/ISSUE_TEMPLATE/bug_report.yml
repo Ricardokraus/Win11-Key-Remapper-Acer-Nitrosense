@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Thanks for reporting! Please check the [FAQ](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense#faq) first:
-        antivirus warnings, SmartScreen and the Task Manager limitation are covered there.
+        AutoHotkey, antivirus warnings and the Task Manager limitation are covered there.
 
   - type: textarea
     id: what
@@ -25,15 +25,12 @@ body:
     validations:
       required: true
 
-  - type: dropdown
-    id: how
+  - type: input
+    id: ahk
     attributes:
-      label: How do you run it?
-      options:
-        - Compiled exe (Win11KeyRemapper.exe)
-        - From source (.ahk with AutoHotkey v2)
-    validations:
-      required: true
+      label: AutoHotkey version
+      description: Windows Settings → Apps → Installed apps → AutoHotkey. Leave it empty if you can't find it.
+      placeholder: "2.0.28"
 
   - type: input
     id: laptop

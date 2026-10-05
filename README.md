@@ -14,7 +14,7 @@
 
 <h3 align="center">
   Keep hitting the NitroSense key instead of Num Lock or Backspace?<br>
-  Turn it into Num Lock, disable it, or remap it — no install.
+  Turn it into Num Lock, disable it, or remap it — a small, free AutoHotkey app.
 </h3>
 
 On Acer Nitro laptops the **NitroSense key** sits right next to Backspace and
@@ -49,50 +49,44 @@ is a tiny tray app that gives that key a better job — or any other key you pic
   inside the window itself, not on your desktop.
 - **A tiny tray menu** (settings, pause, restart, exit) — or **hide the tray
   icon** completely (open the app again to reach its settings).
-- **Stays up to date**: checks GitHub for a new version once a day and installs
-  it in one click, verified with SHA-256. You can turn this off.
-- **Portable and light**: one exe, no admin rights, no driver, no service, no CPU
-  use while idle.
+- **Tells you about new versions**: checks GitHub once a day (you can turn this
+  off) and takes you to the download.
+- **Portable and light**: one script run by [AutoHotkey v2](https://www.autohotkey.com/),
+  no admin rights, no driver, no service, no CPU use while idle.
 - **Free and open source** (MIT).
 
 ## Installation
 
-There are two ways to run it. Both do exactly the same; pick one.
+The app is an [AutoHotkey v2](https://www.autohotkey.com/) script. AutoHotkey is
+free, open source and signed, so it also runs with Windows 11's *Smart App
+Control* on. (There's no exe for now: [why?](#why-no-exe))
 
-| | **A. The exe** (recommended) | **B. With AutoHotkey** |
-|---|---|---|
-| You need | Nothing | [AutoHotkey v2](https://www.autohotkey.com/) installed |
-| You run | `Win11KeyRemapper.exe` | `src\Win11KeyRemapper.ahk` |
-| Updates | Checks once a day, installs in one click | You download the new source yourself |
-| Good to know | Antivirus/SmartScreen may warn the first time ([why?](#faq)) | You run the readable source, nothing compiled |
-
-### A. The exe (no install)
-
-1. Download `Win11KeyRemapper-vX.Y.Z.zip` from the
-   [latest release](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/releases/latest).
-2. Extract it to a folder you'll keep, for example
-   `%LOCALAPPDATA%\Programs\Win11KeyRemapper` or `Documents\Win11KeyRemapper`
-   (not *Downloads*: *Start with Windows* points to wherever the exe is).
-3. Run **`Win11KeyRemapper.exe`**. If SmartScreen appears, click *More info* →
-   *Run anyway*.
+1. Install [AutoHotkey v2](https://www.autohotkey.com/) (*Download v2.0* → run
+   the installer, default options).
+2. Download `Win11KeyRemapper-vX.Y.Z.zip` from the
+   [latest release](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/releases/latest)
+   and extract it to a folder you'll keep, for example `Documents\Win11KeyRemapper`
+   (not *Downloads*: *Start with Windows* points to wherever the app is).
+3. Double-click **`src\Win11KeyRemapper.ahk`**.
 4. The settings window opens on *Keys*. Pick what the NitroSense key should do —
    changes apply at once. *Start with Windows* is already on. Close the window:
    the app lives in the tray. Double-click its icon, or open the app again, to come
    back.
 
-### B. With AutoHotkey installed
+Your settings are saved in `src\settings.ini`.
 
-1. Install [AutoHotkey v2](https://www.autohotkey.com/).
-2. Download the source: the green **Code** button → *Download ZIP* (or the
-   *Source code* zip of a release, or `git clone`), and extract it to a folder
-   you'll keep.
-3. Double-click **`src\Win11KeyRemapper.ahk`**. Everything else is the same as
-   with the exe; *Start with Windows* starts AutoHotkey with the script, and the
-   settings are saved in `src\settings.ini`.
+### Updating
 
-Don't run both at the same time: if one is already running, opening the other just
-shows the running copy's settings. To switch, click *Exit* first (settings →
-*General* → *App*).
+When there's a new version, the app tells you (*Settings* → *Updates*), and
+*Download* opens the release page. Then:
+
+1. Click *Exit* in the app (settings → *General* → *App*, or tray icon → *Exit*).
+2. Download the new zip and extract it **over the same folder**, replacing the
+   files. Your `settings.ini` isn't in the zip, so it stays.
+3. Double-click `src\Win11KeyRemapper.ahk` again.
+
+You can also get the code with the green **Code** button → *Download ZIP*, or
+`git clone`: it works the same way.
 
 <!-- Demo GIF: record with ScreenToGif, save as assets/demo.gif and uncomment.
 <p align="center"><img src="assets/demo.gif" alt="Detecting the NitroSense key and remapping it to Num Lock" width="640"></p>
@@ -121,8 +115,9 @@ Found a security problem? Please report it privately instead — see
 ## Settings
 
 Everything can be changed from the settings window. Behind it is a plain
-`settings.ini`, next to the exe (or in `%APPDATA%\Win11KeyRemapper` if that
-folder isn't writable). Missing keys fall back to the defaults. See
+`settings.ini` in the `src` folder, next to the script (or in
+`%APPDATA%\Win11KeyRemapper` if that folder isn't writable). Missing keys fall
+back to the defaults. See
 [`settings.example.ini`](settings.example.ini).
 
 | Section | Key | Default | Meaning |
@@ -162,26 +157,28 @@ even if it didn't work — that's how this list grows.
 
 Click a question to see the answer.
 
+<a name="why-no-exe"></a>
 <details>
-<summary><b>Q: My antivirus says the exe is a threat</b></summary>
+<summary><b>Q: Why do I need AutoHotkey? Is there an exe?</b></summary>
 <br>
 
-**A:** Apps compiled with AutoHotkey are sometimes flagged by heuristic scanners: the
-same runtime is used by countless scripts (some of them malicious), and this app
-installs a keyboard hook, which is also what keyloggers do. It's a false
-positive. The exe is built by GitHub Actions straight from the source in this
-repository — every release has the build log, a `SHA256SUMS.txt` you can compare
-with `Get-FileHash Win11KeyRemapper.exe`, and (when available) a VirusTotal scan
-link in its notes. You can also report the false positive to your antivirus
-vendor, or [run it from source](#run-from-source).
+**A:** Not for now. An exe made from an AutoHotkey script isn't code-signed, and
+Windows 11's *Smart App Control* blocks unsigned apps it doesn't know, with no
+*Run anyway* button (turning it off affects the whole PC, and often can't be
+undone without reinstalling Windows). AutoHotkey itself is signed, so the script
+runs everywhere, and you can read exactly what it does. A signed exe that installs
+and updates itself is planned.
 </details>
 
 <details>
-<summary><b>Q: "Windows protected your PC" (SmartScreen)</b></summary>
+<summary><b>Q: My antivirus warns about it</b></summary>
 <br>
 
-**A:** The exe isn't code-signed yet, so SmartScreen doesn't know it. Click
-*More info* → *Run anyway*. You'll only see it the first time.
+**A:** This app installs a keyboard hook, which is also what keyloggers do, so a
+heuristic scanner may flag it. It's a false positive: the whole app is the
+readable script in `src\`, it never stores or sends your keys (see
+[SECURITY.md](SECURITY.md)), and every release has a `SHA256SUMS.txt` you can
+compare with `Get-FileHash` on the zip you downloaded.
 </details>
 
 <details>
@@ -209,9 +206,9 @@ remapped and Win Lock works as usual. The switch is in Settings → *Advanced*.
 <summary><b>Q: I hid the tray icon. How do I open the settings?</b></summary>
 <br>
 
-**A:** Open the app again (double-click `Win11KeyRemapper.exe`, or use the Start menu if
-you pinned it). Instead of starting a second copy, the running one shows its
-settings window, where you can turn the icon back on.
+**A:** Open the app again (double-click `src\Win11KeyRemapper.ahk`). Instead of
+starting a second copy, the running one shows its settings window, where you can
+turn the icon back on.
 </details>
 
 <details>
@@ -221,8 +218,8 @@ settings window, where you can turn the icon back on.
 **A:** Only to check for updates: once a day it asks GitHub's API for the latest release
 (nothing about you or your keys is sent). Turn off *Check for updates
 automatically* in Settings → *Updates* to stop it; *Check now* still works on demand.
-Installing an update downloads the release zip from GitHub, checks it against the
-published SHA-256 sums, replaces the exe and restarts the app.
+It never downloads anything by itself: *Download* opens the release page in your
+browser.
 </details>
 
 <details>
@@ -248,7 +245,9 @@ this app's control.
 
 **A:** In the settings (*General*), turn off *Start with Windows*, then click *Exit*
 under *App* (or tray icon → *Exit*). Delete the app's folder, and
-`%APPDATA%\Win11KeyRemapper` if it exists. Nothing else is installed.
+`%APPDATA%\Win11KeyRemapper` if it exists. Nothing else is installed. If you
+don't use AutoHotkey for anything else, you can uninstall it from Windows'
+*Installed apps*.
 </details>
 
 <details>
@@ -266,20 +265,10 @@ capture at all. Or set *Show notifications* to *Only when the app starts* or
 <summary><b>Q: Where are my settings?</b></summary>
 <br>
 
-**A:** In `settings.ini` next to `Win11KeyRemapper.exe`, or in
-`%APPDATA%\Win11KeyRemapper\settings.ini` when the exe's folder isn't writable
+**A:** In `src\settings.ini`, next to `Win11KeyRemapper.ahk`, or in
+`%APPDATA%\Win11KeyRemapper\settings.ini` when that folder isn't writable
 (e.g. under Program Files). Settings → *Advanced* → *Open folder* takes you
 there.
-</details>
-
-<a name="run-from-source"></a>
-<details>
-<summary><b>Q: Can I run it from source instead of the exe?</b></summary>
-<br>
-
-**A:** Yes, see [Installation → B](#b-with-autohotkey-installed). Updates aren't
-installed automatically from source: the app tells you when there's a new version
-and opens the release page.
 </details>
 
 <details>
@@ -309,22 +298,11 @@ and opens the release page.
 More details in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 </details>
 
-## Build from source
+## Checks and tests
 
-The release exe is the AutoHotkey v2 runtime with the script embedded in it,
-made by [Ahk2Exe](https://github.com/AutoHotkey/Ahk2Exe/releases). GitHub Actions
-builds it on every push; pushing a tag like `v0.5.0` publishes a release with the
-zip and its SHA-256 sums.
-
-To build it yourself, one command does everything (it downloads AutoHotkey and
-Ahk2Exe from their GitHub releases into a cache, checks and compiles to
-`dist\Win11KeyRemapper.exe`):
-
-```powershell
-powershell -ExecutionPolicy Bypass -File tools\build.ps1
-```
-
-Or step by step, with [AutoHotkey v2](https://www.autohotkey.com/) and Ahk2Exe:
+GitHub Actions checks the syntax and runs the tests on every push; pushing a tag
+like `v0.5.1` publishes a release with the zip and its SHA-256 sums. To run the
+same checks yourself, with [AutoHotkey v2](https://www.autohotkey.com/):
 
 ```powershell
 # Syntax check
@@ -332,9 +310,6 @@ AutoHotkey64.exe /ErrorStdOut /Validate src\Win11KeyRemapper.ahk
 
 # Logic tests (no keyboard hook is installed)
 powershell -ExecutionPolicy Bypass -File tests\run-tests.ps1
-
-# Compile
-Ahk2Exe.exe /in src\Win11KeyRemapper.ahk /out dist\Win11KeyRemapper.exe /base "C:\path\to\AutoHotkey64.exe"
 ```
 
 ## Contributing

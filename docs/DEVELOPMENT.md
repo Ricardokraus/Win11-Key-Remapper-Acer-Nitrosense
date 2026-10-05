@@ -11,10 +11,10 @@ src/lib/GlassToast.ahk       "liquid glass" notification (standalone library)
 tests/run-tests.ps1          builds a patched copy of the app and runs tests/tests.ahk
 tests/tests.ahk              logic tests (fake key events fed to the hook procedure)
 tools/make-icon.ps1          regenerates assets/icon.ico
-tools/build.ps1              builds dist/Win11KeyRemapper.exe locally
+tools/build.ps1              builds dist/Win11KeyRemapper.exe locally (not published, see "The exe")
 assets/                      icon.ico, banner.svg, social-preview.png, screenshot-*.png
 settings.example.ini         documented defaults (a test checks it matches the code)
-.github/workflows/build.yml  syntax check, tests, compile, zip, VirusTotal, release on tag v*
+.github/workflows/build.yml  syntax check, tests, zip of the script, release on tag v*
 .github/ISSUE_TEMPLATE/      bug, "works on my laptop", feature, question
 .github/dependabot.yml       monthly PRs to update the GitHub Actions
 SECURITY.md, CONTRIBUTING.md, CHANGELOG.md
@@ -29,18 +29,16 @@ AutoHotkey64.exe /ErrorStdOut /Validate src\Win11KeyRemapper.ahk
 # Logic tests: no hook is installed, no keys are sent, nothing is shown
 powershell -ExecutionPolicy Bypass -File tests\run-tests.ps1
 
-# Run from source. If a copy is already running (source or exe), this one
-# just asks it to open its settings and exits; use tray → Restart instead.
+# Run it. If a copy is already running, this one just asks it to open its
+# settings and exits; use tray → Restart instead.
 AutoHotkey64.exe src\Win11KeyRemapper.ahk
 
 # Regenerate the icon (add -Preview preview.png to see every size)
 powershell -ExecutionPolicy Bypass -File tools\make-icon.ps1
 
-# Build dist\Win11KeyRemapper.exe (downloads AutoHotkey + Ahk2Exe once into a cache)
+# Build dist\Win11KeyRemapper.exe (downloads AutoHotkey + Ahk2Exe once into a
+# cache). Only for working on the exe: it isn't published (see "The exe").
 powershell -ExecutionPolicy Bypass -File tools\build.ps1
-
-# Or compile by hand
-Ahk2Exe.exe /in src\Win11KeyRemapper.ahk /out dist\Win11KeyRemapper.exe /base C:\path\to\AutoHotkey64.exe
 ```
 
 When you run from source, `settings.ini` is created in `src\` (gitignored).
@@ -230,7 +228,10 @@ Rules:
 - The JSON is read with three regexes (`tag_name`, the release `html_url`, the
   `browser_download_url` of the zip and of `SHA256SUMS.txt`). Version comparison
   is numeric (`VersionNewer`).
-- *Install* (compiled exe in a writable folder only): `Download()` the zip and
+- From source (how the app is published now) the button is *Download*: it opens
+  the release page, and the user extracts the new zip over the old folder.
+- *Install* (compiled exe in a writable folder only; dormant while no exe is
+  published, see "The exe"): `Download()` the zip and
   `SHA256SUMS.txt` (blocking, but the user asked for it; the hook is reinstalled
   right after), check the zip's SHA-256 (`BCryptHash`), unzip with
   `Shell.Application`, check the new exe's SHA-256, rename the running exe to
@@ -238,7 +239,9 @@ Rules:
   start it with `--restart <pid> --updated` and exit. The next start deletes the
   `.old` file. From source, or if anything fails, the release page opens instead.
 - The release assets' names are part of this contract: `Win11KeyRemapper-v*.zip`
-  containing `Win11KeyRemapper.exe`, and `SHA256SUMS.txt` with both files.
+  and `SHA256SUMS.txt`. *Install* also needs `Win11KeyRemapper.exe` inside the
+  zip and in the sums; today's zips hold the script (`src\`, `assets\icon.ico`),
+  so an old exe copy that finds one sends the user to the release page.
 
 ## Notifications
 
@@ -422,25 +425,50 @@ The tests cover the logic; this needs real keys:
   *Transparency effects* off: a solid card, light or dark like the window.
 - [ ] Pause / resume and *Restart* from the tray.
 - [ ] Hide the tray icon, open the app again: the settings appear; turn it back on.
-- [ ] *Check now* (up to date / update available); *Install* on the exe.
-- [ ] Start with Windows: sign out and in, the app starts (exe and source).
+- [ ] *Check now* (up to date / update available); *Download* opens the release page.
+- [ ] Start with Windows: sign out and in, the app starts.
 - [ ] Toast at startup, after unlock (Win+L) and after the display turns off/on.
 - [ ] Toast on a second monitor with a different scale isn't black.
 - [ ] Settings window on both monitors looks right.
 
 ## Releasing
 
-1. Bump the version in `src/Win11KeyRemapper.ahk` (`;@Ahk2Exe-SetVersion` **and**
-   `APP.version`), and in `CHANGELOG.md` replace "Unreleased" with the date.
-2. Commit, then tag and push: `git tag v0.5.0` and `git push origin v0.5.0`.
-3. The workflow refuses a tag that doesn't match `SetVersion`, builds, scans the
-   exe with VirusTotal (if the `VT_API_KEY` secret exists), creates the release as
-   a draft with the zip and `SHA256SUMS.txt`, adds the scan links to the notes and
-   publishes it. Doing it in that order also works with immutable releases.
-4. Running copies of the exe find the new version within a day (or with
-   *Check now*) and can install it in one click.
+1. Bump the version in `src/Win11KeyRemapper.ahk` (`APP.version` **and**
+   `;@Ahk2Exe-SetVersion`, the workflow checks they match), and in
+   `CHANGELOG.md` replace "Unreleased" with the date.
+2. Commit, then tag and push: `git tag v0.5.1` and `git push origin v0.5.1`.
+3. The workflow refuses a tag that doesn't match the version, checks, tests,
+   zips `src\` + `assets\icon.ico` + README, LICENSE, CHANGELOG and
+   `settings.example.ini`, creates the release as a draft with the zip,
+   `SHA256SUMS.txt` and short install notes, and publishes it. Doing it in that
+   order also works with immutable releases.
+4. Running copies find the new version within a day (or with *Check now*) and
+   *Download* opens the release page.
 
-## Ideas for later (v0.3+)
+## The exe (pending)
 
-Multiple remap rules, Spanish UI (and README), a community model list, code
-signing (SignPath and similar programs sign open-source projects for free).
+v0.5.0 shipped a compiled `Win11KeyRemapper.exe` (Ahk2Exe: the AutoHotkey runtime
+with the script embedded). It's no longer published: **Windows 11's Smart App
+Control blocks unsigned exes it doesn't know**, with no *Run anyway* (unlike
+SmartScreen), and the only way around it is turning Smart App Control off for
+the whole PC. `AutoHotkey64.exe` is signed, so the script runs everywhere.
+
+To bring an installable, self-updating exe back:
+
+1. **Code signing.** SignPath Foundation signs open-source projects for free
+   (apply, then sign in GitHub Actions); Azure Artifact Signing (formerly Trusted
+   Signing) is a cheap paid option. Smart App Control lets signed apps run.
+2. Put the compile step back in the workflow (see the workflow at tag `v0.5.0`:
+   download Ahk2Exe, compile, VirusTotal scan with the optional `VT_API_KEY`
+   secret), sign the exe, and add it to the zip and `SHA256SUMS.txt`.
+3. Optionally an installer (Inno Setup, per user in `%LOCALAPPDATA%\Programs`, no
+   admin, so the in-place update keeps working). It must be signed too, close the
+   running copy first (post `WM_COMMAND 65307` to the `Win11KeyRemapper.Instance`
+   window) and remove the startup shortcut and `settings.ini` on uninstall.
+4. The app side is already there: `InstallUpdate()` replaces a compiled exe in
+   place, `SetAutostart()` points the shortcut at the exe, and the icon comes
+   from the exe's resources.
+
+## Ideas for later
+
+Multiple remap rules, Spanish UI (and README), a community model list.

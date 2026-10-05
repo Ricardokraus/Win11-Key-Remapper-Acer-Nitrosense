@@ -10,20 +10,19 @@ on:
 permissions:
   contents: write   # create and publish releases on tags
 
+# The release is the script itself, run with AutoHotkey v2: no exe for now.
+# Windows 11's Smart App Control blocks unsigned exes with no way to allow
+# them; AutoHotkey is signed. A signed exe is planned (docs/DEVELOPMENT.md).
 jobs:
   build:
     runs-on: windows-latest
-    env:
-      # Optional: a free VirusTotal API key saved as a repository secret adds
-      # scan links to the release notes. Without it that step is skipped.
-      VT_API_KEY: ${{ secrets.VT_API_KEY }}
     defaults:
       run:
         shell: pwsh
     steps:
       - uses: actions/checkout@v7
 
-      - name: Download AutoHotkey v2 and Ahk2Exe
+      - name: Download AutoHotkey v2
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -36,12 +35,8 @@ jobs:
           if (-not $tag) { Write-Error 'No AutoHotkey v2 release found'; exit 1 }
           gh release download $tag -R AutoHotkey/AutoHotkey -p 'AutoHotkey_*.zip' -D $tools
           if ($LASTEXITCODE) { exit 1 }
-          gh release download -R AutoHotkey/Ahk2Exe -p 'Ahk2Exe*.zip' -D $tools
-          if ($LASTEXITCODE) { exit 1 }
           Expand-Archive (Get-Item "$tools\AutoHotkey_*.zip").FullName "$tools\ahk" -Force
-          Expand-Archive (Get-Item "$tools\Ahk2Exe*.zip").FullName "$tools\ahk2exe" -Force
           "AHK=$tools\ahk\AutoHotkey64.exe" >> $env:GITHUB_ENV
-          "AHK2EXE=$tools\ahk2exe\Ahk2Exe.exe" >> $env:GITHUB_ENV
           (Get-Item "$tools\ahk\AutoHotkey64.exe").VersionInfo.ProductVersion
 
       - name: Check syntax
@@ -54,19 +49,15 @@ jobs:
       - name: Run tests
         run: ./tests/run-tests.ps1 -Ahk $env:AHK
 
-      - name: Compile
-        run: |
-          New-Item -ItemType Directory -Force dist | Out-Null
-          $p = Start-Process $env:AHK2EXE -Wait -PassThru -NoNewWindow -ArgumentList `
-                 '/in', "`"$PWD\src\Win11KeyRemapper.ahk`"", '/out', "`"$PWD\dist\Win11KeyRemapper.exe`"", `
-                 '/base', "`"$env:AHK`"", '/silent', 'verbose'
-          if ($p.ExitCode -ne 0 -or -not (Test-Path dist\Win11KeyRemapper.exe)) { exit 1 }
-          (Get-Item dist\Win11KeyRemapper.exe).VersionInfo | Format-List FileDescription, FileVersion
-
       - name: Package
         id: package
         run: |
-          $version = (Select-String -Path src\Win11KeyRemapper.ahk -Pattern '^;@Ahk2Exe-SetVersion\s+(\S+)').Matches[0].Groups[1].Value
+          $version = (Select-String -Path src\Win11KeyRemapper.ahk -Pattern '\bversion: "(\d+\.\d+\.\d+)"').Matches[0].Groups[1].Value
+          $exeVersion = (Select-String -Path src\Win11KeyRemapper.ahk -Pattern '^;@Ahk2Exe-SetVersion\s+(\S+)').Matches[0].Groups[1].Value
+          if ($version -ne $exeVersion) {
+            Write-Error "APP.version ($version) and ;@Ahk2Exe-SetVersion ($exeVersion) differ"
+            exit 1
+          }
           if ($env:GITHUB_REF_TYPE -eq 'tag') {
             if ($env:GITHUB_REF_NAME -ne "v$version") {
               Write-Error "Tag $env:GITHUB_REF_NAME doesn't match the version in the script ($version)"
@@ -76,13 +67,16 @@ jobs:
           } else {
             $name = "Win11KeyRemapper-v$version-dev-$($env:GITHUB_SHA.Substring(0, 7))"
           }
+          # Only what's needed to run it: src\ (the app) and assets\icon.ico
+          # (its tray and window icon, found as ..\assets from src\)
           $dir = "dist\$name"
-          New-Item -ItemType Directory -Force $dir | Out-Null
-          Copy-Item dist\Win11KeyRemapper.exe, README.md, LICENSE, CHANGELOG.md, settings.example.ini $dir
+          New-Item -ItemType Directory -Force "$dir\src\lib", "$dir\assets" | Out-Null
+          Copy-Item src\Win11KeyRemapper.ahk "$dir\src"
+          Copy-Item src\lib\GlassToast.ahk "$dir\src\lib"
+          Copy-Item assets\icon.ico "$dir\assets"
+          Copy-Item README.md, LICENSE, CHANGELOG.md, settings.example.ini $dir
           Compress-Archive "$dir\*" "dist\$name.zip" -Force
-          $sums = foreach ($f in (Get-Item dist\Win11KeyRemapper.exe, "dist\$name.zip")) {
-            "$((Get-FileHash $f -Algorithm SHA256).Hash.ToLower())  $($f.Name)"
-          }
+          $sums = "$((Get-FileHash "dist\$name.zip" -Algorithm SHA256).Hash.ToLower())  $name.zip"
           $sums | Set-Content dist\SHA256SUMS.txt -Encoding ascii
           $sums
           "name=$name" >> $env:GITHUB_OUTPUT
@@ -97,15 +91,6 @@ jobs:
             dist/SHA256SUMS.txt
           retention-days: 14
 
-      - name: Scan with VirusTotal
-        id: virustotal
-        if: github.ref_type == 'tag' && env.VT_API_KEY != ''
-        uses: crazy-max/ghaction-virustotal@v5
-        with:
-          vt_api_key: ${{ env.VT_API_KEY }}
-          files: |
-            dist/Win11KeyRemapper.exe
-
       # Draft first, assets attached, then published: works with immutable releases
       - name: Create release (draft)
         id: release
@@ -113,6 +98,12 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           draft: true
+          body: |
+            **How to use it:** install [AutoHotkey v2](https://www.autohotkey.com/) (free), extract
+            `${{ steps.package.outputs.name }}.zip` to a folder you'll keep and double-click
+            `src\Win11KeyRemapper.ahk`. Updating: click *Exit* in the app, extract the new zip over
+            the old folder (your `settings.ini` stays) and open it again.
+            Details in the [README](https://github.com/${{ github.repository }}#installation).
           files: |
             dist/${{ steps.package.outputs.name }}.zip
             dist/SHA256SUMS.txt
@@ -124,17 +115,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_ID: ${{ steps.release.outputs.id }}
-          ANALYSIS: ${{ steps.virustotal.outputs.analysis }}
         run: |
           $api = "repos/$env:GITHUB_REPOSITORY/releases/$env:RELEASE_ID"
-          if ($env:ANALYSIS) {
-            $body = gh api $api --jq .body
-            $links = foreach ($pair in $env:ANALYSIS -split ',') {
-              $file, $url = $pair -split '=', 2
-              "- [$file]($url)"
-            }
-            @($body, '', '### VirusTotal scan', '', $links) | Set-Content notes.md -Encoding utf8
-            gh api -X PATCH $api -F body=@notes.md | Out-Null
-          }
           gh api -X PATCH $api -F draft=false -f make_latest=true | Out-Null
           if ($LASTEXITCODE) { exit 1 }

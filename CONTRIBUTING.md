@@ -30,8 +30,7 @@ Thanks for helping! There are several ways to contribute:
 5. Add a line to `CHANGELOG.md` under the upcoming version, and update the
    README if the change is visible to users.
 
-GitHub Actions checks the syntax, runs the tests and compiles the exe for every
-pull request.
+GitHub Actions checks the syntax and runs the tests for every pull request.
 
 ## License
 

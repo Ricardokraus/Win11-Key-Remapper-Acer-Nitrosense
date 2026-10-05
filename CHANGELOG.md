@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- The app is now published as an AutoHotkey v2 script only: the release zip
+  holds `src\Win11KeyRemapper.ahk` (double-click it, with AutoHotkey v2
+  installed) and no longer an exe. Windows 11's Smart App Control blocks
+  unsigned exes with no *Run anyway*, while AutoHotkey is signed. A signed exe
+  that installs and updates itself is planned.
+- Updating: the app still tells you about new versions; *Download* opens the
+  release page and you extract the new zip over the old folder (your settings
+  stay). README, FAQ, SECURITY.md and the bug form updated to match.
+
 ## [0.5.0] - 2026-10-05
 
 First public release.

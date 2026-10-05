@@ -1,6 +1,8 @@
 # v0.2 — first public release (spec)
 
 > Shipped as **v0.5.0**: the version number was raised before the release.
+> Since then the exe is no longer published (Smart App Control blocks unsigned
+> exes): see "The exe (pending)" in DEVELOPMENT.md.
 
 Decisions taken with the user:
 
