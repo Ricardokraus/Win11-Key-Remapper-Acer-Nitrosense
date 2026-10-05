@@ -20,7 +20,7 @@ body:
     id: version
     attributes:
       label: App version
-      description: Shown at the bottom of the settings window (or tray icon → About / GitHub).
+      description: Settings window → About (or Updates).
       placeholder: "0.2.0"
     validations:
       required: true
@@ -63,7 +63,7 @@ body:
     id: settings
     attributes:
       label: settings.ini
-      description: Tray → Open settings folder. Paste the content of settings.ini.
+      description: Settings window → Advanced → Open folder. Paste the content of settings.ini.
       render: ini
 
   - type: textarea

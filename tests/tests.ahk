@@ -8,12 +8,12 @@ Critical                                ; no timer may run in the middle of a te
 ; A runtime error must fail the run, not open a dialog and wait
 OnError((e, *) => (FileAppend("ERROR: " e.Message " (line " e.Line ")`n" e.Stack "`n", "*", "UTF-8"), ExitApp(2)))
 TOASTS := [], SENT := [], RAN := []
-TestToast(title, sub, kind := "ok", holdMs := 5000) {
-    TOASTS.Push(title " | " sub)
+TestToast(title, sub, kind := "ok", holdMs := 5000, host := 0, theme := "") {
+    TOASTS.Push((host ? "[in] " : "") title " | " sub)     ; [in] = a notice inside the settings window
 }
 TestSend(keys) => SENT.Push(keys)
 TestRun(target, dir := "") => RAN.Push(target)
-TestLock(state) => 0
+LastToast() => TOASTS.Length ? TOASTS[TOASTS.Length] : ""
 PASSES := 0, FAILS := 0
 Check(cond, label) {
     global PASSES, FAILS
@@ -59,7 +59,7 @@ c := LoadSettings(SETTINGS_PATH)
 Eq(c.sourceVK, 0xFF, "default SourceVK")
 Eq(c.sourceSC, 0x175, "default SourceSC")
 Eq(c.matchSC, 1, "default MatchSC")
-Eq(c.mode, "NumLock", "default Mode")
+Eq(c.mode " " c.targetVK " " c.targetSC, "Key 144 325", "default: press Num Lock")
 Eq(c.targetMods.Length, 0, "default TargetMods empty")
 Eq(JoinMods(c.launchMods), "RCtrl", "default LaunchMods")
 Eq(c.launchVK, 0xFF, "default LaunchVK")
@@ -83,7 +83,7 @@ Eq(c.sourceVK, 0x41, "inline comment stripped")
 Eq(c.matchSC, 0, "MatchSC=0")
 Eq(c.mode, "Key", "mode case-insensitive")
 Eq(JoinMods(c.targetMods), "LCtrl,LShift", "mods parsed + aliases")
-Eq(c.targetSC, 0, "invalid hex -> default")
+Eq(c.targetSC, 0x145, "invalid hex -> default")
 Eq(c.launchEnabled, 0, "LaunchEnabled=0")
 Eq(c.launchPath, "auto", "empty LaunchPath -> auto")
 Eq(c.launchVK, 0xFF, "missing LaunchVK -> default")
@@ -91,6 +91,10 @@ Eq(c.toastWhen, "Never", "ToastWhen=never")
 Eq(c.theme, "Dark", "Theme normalized")
 Eq(c.toastPosition " " c.toastAnim " " c.trayIcon " " c.checkUpdates, "BottomRight Slide 0 1", "toast/tray/update settings")
 Eq(LoadSettings(SETTINGS_PATH).theme, "System", "default Theme")
+p3 := tmp "\legacy.ini"
+FileAppend("[Remap]`r`nMode=CapsLock`r`nTargetMods=LCtrl`r`nTargetVK=0x41`r`n", p3)
+c := LoadSettings(p3)
+Eq(c.mode " " Hex(c.targetVK) " " Hex(c.targetSC) " " c.targetMods.Length, "Key 0x14 0x3A 0", "old Mode=CapsLock -> press Caps Lock")
 c := DefaultSettings(), c.toastGlass := false
 Check(DefaultSettings().toastGlass, "notifications: glass by default")
 WriteSettings(SETTINGS_PATH, c)
@@ -171,15 +175,17 @@ Reset(c)
 Eq(RT.mode, "None", "Key without target -> None")
 
 ; ---- 4. Hook: default settings ----
+NL_DOWN := "send:{Blind}{vk90sc145 down};", NL_UP := "send:{Blind}{vk90sc145 up};"
 Reset(DefaultSettings())
 Eq(Ev(0xFF, 0x175), 1, "NitroSense down swallowed")
-Eq(TakeQueue(), "toggle:NumLock;", "toggle queued")
+Eq(TakeQueue(), NL_DOWN, "Num Lock pressed")
 Eq(Ev(0xFF, 0x175), 1, "repeat swallowed")
-Eq(TakeQueue(), "", "repeat does not toggle")
+Eq(TakeQueue(), "", "a held lock key doesn't repeat (toggles once)")
 Eq(Ev(0xFF, 0x175, true), 1, "up swallowed")
+Eq(TakeQueue(), NL_UP, "Num Lock released")
 Eq(Ev(0xFF, 0x175), 1, "2nd press")
-Eq(TakeQueue(), "toggle:NumLock;", "2nd press toggles")
-Ev(0xFF, 0x175, true)
+Eq(TakeQueue(), NL_DOWN, "2nd press presses again")
+Ev(0xFF, 0x175, true), TakeQueue()
 Check(Ev(0xFF, 0x159) != 1 && Ev(0xFF, 0x159, true) != 1, "Win Lock on passes")
 Check(Ev(0xFF, 0x162) != 1, "Win Lock off passes")
 Check(Ev(0xFF, 0x175, false, true) != 1, "injected passes")
@@ -188,14 +194,14 @@ Eq(TakeQueue(), "", "nothing queued for passed keys")
 REPEAT_MS := 50
 Ev(0xFF, 0x175), Sleep(120)
 Eq(Ev(0xFF, 0x175), 1, "stale press")
-Eq(TakeQueue(), "toggle:NumLock;toggle:NumLock;", "missed key-up: new press toggles again")
+Eq(TakeQueue(), NL_DOWN NL_DOWN, "missed key-up: a new press")
 REPEAT_MS := 1500
-Ev(0xFF, 0x175, true)
+Ev(0xFF, 0x175, true), TakeQueue()
 
 Check(Ev(0xA2, 0x1D) != 1, "LCtrl passes")
 Check(HELD.Has("LCtrl"), "LCtrl tracked")
 Eq(Ev(0xFF, 0x175), 1, "LCtrl+NitroSense")
-Eq(TakeQueue(), "toggle:NumLock;", "LCtrl+NitroSense toggles (launcher needs RCtrl)")
+Eq(TakeQueue(), NL_DOWN, "LCtrl+NitroSense presses Num Lock (launcher needs RCtrl)")
 Ev(0xFF, 0x175, true), Ev(0xA2, 0x1D, true)
 Check(!HELD.Has("LCtrl"), "LCtrl released")
 
@@ -254,7 +260,7 @@ CFG := DefaultSettings()
 ApplySettings()
 Eq(TakeQueue(), "send:{Blind}{vk41sc01E down};send:{Blind}{vk41sc01E up};", "held target released on apply")
 Eq(Ev(0xFF, 0x175, true), 1, "physical key-up eaten after apply")
-Eq(TakeQueue(), "", "no toggle on that key-up")
+Eq(TakeQueue(), "", "nothing sent on that key-up")
 
 ; ---- 6. Capture ----
 Reset(DefaultSettings())
@@ -287,6 +293,11 @@ Ev(0x41, 0x1E, true), Ev(0xA5, 0x138, true), Ev(0xA2, 0x21D, true)
 Eq(SWALLOW.Count, 0, "cap: AltGr ups eaten")
 
 StartCap("target")
+Ev(0xA3, 0x11D), Ev(0x13, 0x145)                    ; what Windows sends for Right Ctrl + Num Lock
+Eq(Hex(CAP.result.vk) " " JoinMods(CAP.result.mods), "0x90 RCtrl", "cap: Ctrl + Num Lock isn't Pause")
+Ev(0x13, 0x145, true), Ev(0xA3, 0x11D, true)
+
+StartCap("target")
 Ev(0xA0, 0x2A)
 CaptureCancel()
 Eq(Ev(0xA0, 0x2A, true), 1, "cancel: held modifier key-up eaten")
@@ -303,8 +314,9 @@ Eq(UI.keyText["source"], "NitroSense key", "gui: source keys")
 Eq(UI.keyText["launch"], "Right Ctrl + NitroSense key", "gui: launch keys")
 Eq(UI.srcDesc.Value, "Code: VK FF · SC 175", "gui: key code shown")
 Eq(UI.mode.Value, 1, "gui: mode")
-Check(InStr(UI.actionInfo.Value, "Num Lock on or off"), "gui: action explained")
-Check(!UI.targetBtn.Enabled && UI.targetDesc.Value = "Not used by this action", "gui: Sends row off for toggles")
+Eq(MODE_LABELS.Length, 3, "gui: only press a key, do nothing, normal")
+Check(InStr(UI.actionInfo.Value, "Presses the key below"), "gui: action explained")
+Check(UI.targetBtn.Visible && UI.keyText["target"] = "Num Lock", "gui: Sends row shows Num Lock")
 Check(InStr(UI.appStatus.Value, "not found"), "gui: app not found")
 Eq(UI.status.Value, "Active", "gui: status")
 Eq(UI.tgState["launchEnabled"] UI.tgState["distinguish"] UI.tgState["matchSC"] UI.tgState["trayIcon"]
@@ -343,17 +355,26 @@ Ev(0x41, 0x1E, true)
 Eq(UI.keyText["source"] " " CFG.sourceVK, "A 65", "gui: detected key applied at once")
 Eq(LoadSettings(SETTINGS_PATH).sourceVK, 0x41, "gui: and saved")
 
-UI.mode.Value := 4
+nBefore := UI.items.Length
+UI.mode.Value := 2
 OnModeChange(UI.mode)
-Eq(DRAFT.mode " " CFG.mode, "Key NumLock", "gui: incomplete Key mode isn't applied")
-Check(UI.targetBtn.Enabled && InStr(UI.targetDesc.Value, "Change"), "gui: Sends row asks for the key")
+ctx := PMv2(), UI.launchBtn.GetPos(, &yHidden), PMv2(ctx)
+Check(CFG.mode = "Disable" && !UI.targetBtn.Visible && !UI.targetKeys.Visible, "gui: Sends row hidden when the key does nothing")
+Check(InStr(LastToast(), "[in] Action: Do nothing"), "gui: a notice inside the window says what was saved")
+DRAFT.targetVK := 0
+UI.mode.Value := 1
+OnModeChange(UI.mode)
+ctx := PMv2(), UI.launchBtn.GetPos(, &yShown), PMv2(ctx)
+Eq(DRAFT.mode " " CFG.mode, "Key Disable", "gui: incomplete Key mode isn't applied")
+Check(UI.targetBtn.Visible && InStr(UI.targetDesc.Value, "Change"), "gui: Sends row back, asks for the key")
+Eq(yShown - yHidden, Round(64 * UI.k), "gui: the rows below move with it")
 CaptureToggle("target")
 Ev(0x43, 0x2E)
 CaptureDone()
 Ev(0x43, 0x2E, true)
 Eq(CFG.mode " " CFG.targetVK, "Key 67", "gui: applied once complete")
 
-d := DefaultSettings(), d.mode := "Key"
+d := DefaultSettings(), d.targetVK := 0
 Check(InStr(ValidateSettings(d, &where), "next to Sends") && where = "target", "validate: Key needs target")
 d := DefaultSettings(), d.launchMods := []
 Check(InStr(ValidateSettings(d, &where), "never run") && where = "launch", "validate: launcher = source without modifier")
@@ -379,12 +400,27 @@ Check(PAUSED && UI.status.Value = "Paused", "gui: remapping off = paused")
 FlipSwitch("remapping")
 Check(!PAUSED, "gui: remapping back on")
 FlipSwitch("trayIcon")
-Check(A_IconHidden && InStr(TOASTS[TOASTS.Length], "tray icon is hidden"), "gui: tray icon hidden, with a hint")
+Check(A_IconHidden && InStr(LastToast(), "[in] The tray icon is hidden"), "gui: tray icon hidden, with a hint")
 FlipSwitch("trayIcon")
 Check(!A_IconHidden, "gui: tray icon back")
 UI.toastWhen.Value := 2
 DRAFT.toastWhen := TOAST_WHENS[2], CommitDraft()
 Eq(LoadSettings(SETTINGS_PATH).toastWhen, "Startup", "gui: notifications only at startup")
+
+; Never: no system notifications (warnings still show); notices inside the window do
+DRAFT.toastWhen := "Never", CommitDraft()
+n := TOASTS.Length
+SystemToast("Update available: v9", "x", "update")
+SetPaused(true), SetPaused(false)
+Eq(TOASTS.Length, n, "never: no system notifications")
+SystemToast("App not found", "x", "warn")
+Check(InStr(LastToast(), "App not found"), "never: warnings still show")
+UPD.latest := "v9.9.9"
+UpdateDone("latest", true)
+Check(InStr(LastToast(), "[in] You're up to date"), "never: Check now answers inside the window")
+UPD.state := "", UPD.latest := ""
+UpdateUpdatesRow()
+DRAFT.toastWhen := "Always", CommitDraft()
 
 FlipSwitch("toastGlass")
 Check(!CFG.toastGlass && !GTCFG.glass && UI.tgState["toastGlass"] = 0, "gui: transparency effects off")
@@ -418,27 +454,31 @@ for hwnd, wd in UI.widgets
     if (wd.kind = "button" && wd.variant = "danger")
         danger.Push(wd.Text)
 Eq(danger.Length, 3, "gui: Restart, Exit and Reset are danger buttons")
-nLinks := 0, nEdits := 0
+labels := "", nEdits := 0
 for item in UI.items
-    nLinks += item.page = "about" && UI.widgets.Has(item.ctl.Hwnd) && UI.widgets[item.ctl.Hwnd].kind = "link"
-  , nEdits += item.ctl.Type = "Edit"
-Check(nLinks = LINKS.Length && !nEdits && LINKS[1][2] = "#faq", "gui: About links, FAQ on GitHub, no text box")
+    if (item.page = "about" && UI.widgets.Has(item.ctl.Hwnd) && UI.widgets[item.ctl.Hwnd].kind = "link")
+        labels .= SubStr(UI.widgets[item.ctl.Hwnd].label, 1, 4) ","
+for item in UI.items
+    nEdits += item.ctl.Type = "Edit"
+Eq(labels, "Tell,Repo,Sugg,Freq,Ask ,", "gui: About links in two groups")
+Check(!nEdits && LINKS[2][2][1][2] = "#faq", "gui: FAQ on GitHub, no text box")
 FlipSwitch("remapping")
 Check(UI.anims.Has(UI.tg["remapping"]) || !AnimationsOn() || !UI.tg["remapping"].Visible, "gui: the switch slides")
 FlipSwitch("remapping")
 
-UI.dpi := 120, UI.k := 1.25
+newDpi := UI.dpi = 120 ? 168 : 120     ; another monitor's scale, whichever one the window is on
+UI.dpi := newDpi, UI.k := newDpi / 96
 ApplyLayout()
 ctx := PMv2()                           ; read sizes like the window sees them (no DPI virtualization)
 UI.srcBtn.GetPos(, , &bw)
 PMv2(ctx)
-Eq(bw, 120, "gui: relaid out for a 125 % monitor")
-Check(UI.laidOut["general"] != 120, "gui: hidden sections are laid out later")
+Eq(bw, Round(96 * UI.k), "gui: relaid out for another monitor's scale")
+Check(UI.laidOut["general"] != newDpi, "gui: hidden sections are laid out later")
 ShowPage("general")
 ctx := PMv2()
 UI.theme.GetPos(, , &lw)
 PMv2(ctx)
-Check(UI.laidOut["general"] = 120 && lw = 200, "gui: laid out when shown  (" lw ")")
+Check(UI.laidOut["general"] = newDpi && lw = Round(160 * UI.k), "gui: laid out when shown  (" lw ")")
 ShowPage("keys")
 
 newTheme := UI.themeName = "dark" ? "Light" : "Dark"
@@ -446,9 +486,10 @@ DRAFT.theme := newTheme
 CommitDraft()
 RebuildSettings()
 Check(UI.gui && UI.themeName = StrLower(newTheme) && CFG.theme = newTheme && UI.page = "keys", "gui: theme change rebuilds, same section")
-UI.mode.Value := 2
+UI.mode.Value := 3
 OnModeChange(UI.mode)
-Eq(CFG.mode, "CapsLock", "gui: mode applied")
+Eq(CFG.mode, "None", "gui: mode applied")
+Eq(ParseArgs().settings, "", "no --settings argument")
 
 FlipSwitch("autostart")
 Check(FileExist(APP.lnk), "gui: autostart on")
@@ -461,21 +502,18 @@ CFG.theme := "System"
 
 ; ---- 8. Tray / pause ----
 BuildTray()
-Check(InStr(A_IconTip, "Windows 11 Key Remapper`nA → Caps Lock"), "tray tooltip")
+Check(InStr(A_IconTip, "Windows 11 Key Remapper`nA → Caps Lock") || InStr(A_IconTip, "is off"), "tray tooltip  [" A_IconTip "]")
+Eq(DllCall("GetMenuItemCount", "ptr", A_TrayMenu.Handle), 5, "tray: Settings, Pause, Restart, Exit (+ line)")
 TogglePause()
 Check(PAUSED && InStr(A_IconTip, "(paused)"), "pause on")
 TogglePause()
 Check(!PAUSED, "pause off")
-ToggleAutostart()
-Check(!FileExist(APP.lnk), "tray: autostart off")
 UPD.latest := "v9.9.9"
 UpdateDone("available", false)
-Check(UPD.trayItem = "Install update v9.9.9…" && InStr(TOASTS[TOASTS.Length], "Update available: v9.9.9"), "tray: update offered")
+Check(InStr(LastToast(), "Update available: v9.9.9") && !InStr(LastToast(), "[in]"), "update offered as a system notification")
 n := TOASTS.Length
 UpdateDone("available", false)
-Eq(TOASTS.Length, n, "tray: same update not announced twice")
-UpdateDone("latest", true)
-Check(UPD.trayItem = "Check for updates" && InStr(TOASTS[TOASTS.Length], "up to date"), "tray: up to date")
+Eq(TOASTS.Length, n, "same update not announced twice")
 UPD.state := ""
 
 ; ---- 9. NitroSense detection (real machine) ----

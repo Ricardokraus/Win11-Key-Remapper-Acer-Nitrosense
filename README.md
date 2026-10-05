@@ -30,9 +30,10 @@ is a tiny tray app that gives that key a better job — or any other key you pic
 
 ## Features
 
-- **Remap the NitroSense key** (or any key) to toggle **Num Lock**, **Caps Lock**
-  or **Scroll Lock**, to press **another key or shortcut**, or to do **nothing**.
-- **Holding the key toggles once**, not over and over.
+- **Remap the NitroSense key** (or any key) to **another key or shortcut** —
+  **Num Lock** by default — or make it do **nothing**.
+- **Holding it toggles Num Lock (or Caps / Scroll Lock) once**, not over and over;
+  other keys repeat like the real key.
 - **Built-in key detector**: click *Change…*, press a key or a combination, done.
 - **Optional shortcut to open NitroSense** (default: <kbd>Right Ctrl</kbd> +
   NitroSense key). It finds the app by itself, including the Microsoft Store
@@ -44,8 +45,9 @@ is a tiny tray app that gives that key a better job — or any other key you pic
 - **Notifications your way**: always (at startup, after unlocking and when the
   screen turns on), only when the app starts, or never; choose where they appear
   (six positions), how (slide, fade or none) and whether they're frosted glass or
-  solid, with a preview button.
-- **Tray menu** with pause, restart and *Start with Windows* — or **hide the tray
+  solid, with a preview button. What you change in the settings is confirmed
+  inside the window itself, not on your desktop.
+- **A tiny tray menu** (settings, pause, restart, exit) — or **hide the tray
   icon** completely (open the app again to reach its settings).
 - **Stays up to date**: checks GitHub for a new version once a day and installs
   it in one click, verified with SHA-256. You can turn this off.
@@ -127,15 +129,15 @@ folder isn't writable). Missing keys fall back to the defaults. See
 |---|---|---|---|
 | `[Remap]` | `SourceVK` / `SourceSC` | `0xFF` / `0x175` | Key to remap (NitroSense key). Hex virtual-key and scan code, as shown next to the key in the settings window. |
 | | `MatchSC` | `1` | *Exact key match*: also compare the scan code. Keep it on for vendor keys that share VK `FF`. |
-| | `Mode` | `NumLock` | `NumLock`, `CapsLock`, `ScrollLock`, `Key` (press another key/shortcut), `Disable`, or `None` (leave the key alone). |
+| | `Mode` | `Key` | `Key` (press another key or shortcut), `Disable`, or `None` (leave the key alone). The older `NumLock`, `CapsLock` and `ScrollLock` still work: they mean `Key` with that key. |
 | | `TargetMods` | *(empty)* | `Mode=Key`: modifiers held with the target, e.g. `LCtrl,LShift`. |
-| | `TargetVK` / `TargetSC` | `0x0` / `0x0` | `Mode=Key`: the key to press instead. |
+| | `TargetVK` / `TargetSC` | `0x90` / `0x145` | `Mode=Key`: the key to press instead (default: Num Lock). |
 | `[Launcher]` | `LaunchEnabled` | `1` | Shortcut that opens an app. |
 | | `LaunchMods` | `RCtrl` | Exact modifiers to hold: `LCtrl RCtrl LAlt RAlt LShift RShift LWin RWin`, comma-separated. |
 | | `LaunchVK` / `LaunchSC` | `0xFF` / `0x175` | The shortcut's key. |
 | | `LaunchAnySide` | `0` | `1` = left or right Ctrl/Alt/Shift/Win both count. |
 | | `LaunchPath` | `auto` | `auto` (find NitroSense), a path to an `.exe` / `.lnk`, or `shell:AppsFolder\<AppID>`. |
-| `[General]` | `ToastWhen` | `Always` | When to show the "app is running" notification: `Always` (at startup, after unlocking and when the display turns on), `Startup` (only when the app starts) or `Never`. Update notices follow it too. |
+| `[General]` | `ToastWhen` | `Always` | When to show the "app is running" notification: `Always` (at startup, after unlocking and when the display turns on), `Startup` (only when the app starts) or `Never` (no notifications on the desktop at all, except warnings that need you, like *App not found*). Update notices follow it too. |
 | | `ToastPosition` | `TopCenter` | `TopCenter`, `TopRight`, `TopLeft`, `BottomCenter`, `BottomRight` or `BottomLeft`. |
 | | `ToastAnimation` | `Slide` | `Slide`, `Fade` or `None`. |
 | | `ToastTransparency` | `1` | `1` = frosted glass (blurs what's behind it); `0` = a solid card in the settings window's colors, lighter for older or low-power PCs. |
@@ -266,8 +268,8 @@ capture at all. Or set *Show notifications* to *Only when the app starts* or
 
 **A:** In `settings.ini` next to `Win11KeyRemapper.exe`, or in
 `%APPDATA%\Win11KeyRemapper\settings.ini` when the exe's folder isn't writable
-(e.g. under Program Files). Settings → *Advanced* → *Open folder* (or tray →
-*Open settings folder*) takes you there.
+(e.g. under Program Files). Settings → *Advanced* → *Open folder* takes you
+there.
 </details>
 
 <a name="run-from-source"></a>
@@ -291,13 +293,14 @@ and opens the release page.
   keyboard hook (`WH_KEYBOARD_LL`) and matches each key by virtual-key code
   **and** scan code (with the extended bit).
 - The matched key is swallowed, so neither Windows nor the vendor software sees
-  it — otherwise both would react and you'd get double toggles.
+  it — otherwise both would react and Num Lock would toggle twice.
 - Modifiers for the launcher shortcut are tracked by the hook itself.
 - The hook never does real work: actions go to a queue that runs right after,
   because Windows silently removes hooks that respond too slowly. The hook is
   also reinstalled after unlocking and after sleep.
-- Key-downs that arrive while the key is still held (auto-repeat) are ignored for
-  toggles, so holding the key toggles once.
+- Key-downs that arrive while the key is still held (auto-repeat) are passed on
+  as repeats of the target, except for Num, Caps and Scroll Lock, so holding the
+  key toggles them once.
 - The settings window is standard Win32 with custom-drawn cards, buttons,
   keycaps, switches and sidebar, aware of each monitor's scale; the notification
   is drawn once with GDI+ and then only moved and faded by the window manager, so

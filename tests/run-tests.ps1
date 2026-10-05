@@ -4,8 +4,8 @@
 
 .DESCRIPTION
     Builds a patched copy of src\Win11KeyRemapper.ahk in %TEMP% where startup
-    is removed and everything with side effects (SendInput, Run, lock-key
-    toggles, toasts, message boxes) is replaced by recording stubs. Then it
+    is removed and everything with side effects (SendInput, Run, downloads,
+    toasts, message boxes) is replaced by recording stubs. Then it
     appends tests\tests.ahk, which feeds fake key events straight into the
     hook procedure and drives a hidden settings window.
 
@@ -43,7 +43,6 @@ $patches = [ordered]@{
     '\bSendInput\('                                 = 'TestSend('
     '\bRun\('                                       = 'TestRun('
     '\bDownload\('                                  = 'TestRun('
-    '\bSet(NumLock|CapsLock|ScrollLock)State\('     = 'TestLock('
 }
 foreach ($p in $patches.GetEnumerator()) {
     if (-not [regex]::IsMatch($code, $p.Key, 'Multiline')) { throw "Test patch no longer applies: $($p.Key)" }

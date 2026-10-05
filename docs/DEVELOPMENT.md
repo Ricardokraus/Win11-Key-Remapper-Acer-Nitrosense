@@ -90,10 +90,13 @@ Rules:
 - `REPEAT_MS` is 1500 ms: it must be longer than the slowest Windows repeat delay
   (1 s). With 500 ms the first auto-repeat could arrive after the window and
   toggle Num Lock a second time.
-- Toggles act on key-down only and ignore auto-repeat. `Mode=Key` without
-  modifiers is a real remap (`{Blind}{vkXXscYYY down}` / `up`), so holding repeats
-  and Shift+source gives Shift+target. With modifiers, the whole combo is sent on
-  every key-down.
+- `Mode=Key` without modifiers is a real remap (`{Blind}{vkXXscYYY down}` /
+  `up`), so holding repeats and Shift+source gives Shift+target. Except for a
+  lock key (Num, Caps, Scroll Lock: `RT.noRepeat`), whose auto-repeat is eaten so
+  holding toggles it once. With modifiers, the whole combo is sent on every
+  key-down. There used to be separate "toggle Num/Caps/Scroll Lock" modes; they
+  were the same thing with more options to choose from, so they're gone, and
+  `LoadSettings` turns an old `Mode=NumLock` into `Mode=Key` with Num Lock.
 - Changing settings or pausing while a key is held calls `ReleasePresses()`: it
   sends the key-up of a held target key and marks the physical key-up to be eaten.
 
@@ -147,10 +150,17 @@ Rules:
   pressed; keycaps too; the switch knob grows on hover and stretches while pressed.
   A frame costs under 1 ms. Skipped when Windows' animation effects are off
   (`SPI_GETCLIENTAREAANIMATION`).
-- **No flicker**: changing many controls at once (switching sections, a DPI change)
-  happens inside `Freeze()`, which stops painting with `WM_SETREDRAW` and repaints
-  everything once with `RedrawWindow`. Only while the window is visible:
-  `WM_SETREDRAW` on a hidden window would show it. Controls of the other sections
+- **No flicker, no cut**: changing many controls at once (switching sections, a
+  DPI change, the *Sends* row appearing) happens inside `Freeze()`, which stops
+  painting with `WM_SETREDRAW`. Then `Flip()` paints the whole window with its
+  controls off-screen (`PrintWindow` → `WM_PRINT`) and copies it to the screen in
+  one `BitBlt`, and validates everything so nothing repaints piece by piece.
+  Repainting control by control on screen (`RedrawWindow`) let DWM show
+  half-painted frames at 180 Hz: a visible "cut". `WS_EX_COMPOSITED` was not used:
+  it fights DWM and makes child windows sluggish ([Raymond
+  Chen](https://devblogs.microsoft.com/oldnewthing/20171018-00/?p=97245)).
+  Only while the window is visible: `WM_SETREDRAW` on a hidden window would show
+  it. Controls of the other sections
   are created hidden, and a hidden widget is only marked `dirty` and drawn when its
   section is shown. Text colors go through `SetColor`, which remembers them, so a
   DPI change can re-apply fonts without losing the color.
@@ -212,6 +222,24 @@ Rules:
   containing `Win11KeyRemapper.exe`, and `SHA256SUMS.txt` with both files.
 
 ## Notifications
+
+- **System notifications** (`SystemToast`): updates found by the daily check,
+  pause/resume from the tray, the startup/unlock one (`StatusToast`).
+  `ToastWhen=Never` turns them all off except warnings (`kind = "warn"`), which
+  need the user (e.g. *App not found* after the NitroSense shortcut).
+- **Notices inside the settings window** (`Notice`): whatever the user just did
+  there: "*Theme: Dark* — Saved and applied", the answer of *Check now*, errors.
+  Same card as a notification, but solid (no screen capture), at the bottom center
+  of the window, rising a little while fading in; click-through
+  (`WS_EX_TRANSPARENT`), so it can't be clicked away; owned by the window, so it
+  stays above it and closes with it; `WM_MOVE` → `GT_FollowHost` keeps it in place
+  when the window moves. `GlassToast(…, host, hostTheme)` does all that. With the
+  window closed, a notice falls back to a system notification.
+- Message boxes (Reset, install an update) are created in a PMv2 thread context
+  (`Dialog`), or Windows stretches them on a monitor with another scale (blurry).
+- *Restart* from the settings window starts the new copy with
+  `--settings <section> <x> <y>`: it reopens the window where it was.
+
 
 `GTCFG.position` (`TopCenter`, `TopRight`, `TopLeft`, `BottomCenter`,
 `BottomRight`, `BottomLeft`) and `GTCFG.animation` (`Slide`, `Fade`, `None`) are
@@ -338,10 +366,12 @@ Performance (measured with a telemetry build before optimizing):
 
 The tests cover the logic; this needs real keys:
 
-- [ ] NitroSense key → Num Lock toggles once per press, also when held.
+- [ ] NitroSense key → Num Lock toggles once per press, also when held; Caps Lock too.
 - [ ] Win Lock (Fn+Win) still works and doesn't touch Num Lock.
-- [ ] Right Ctrl + NitroSense key opens NitroSense; Left Ctrl + key toggles.
-- [ ] *Change…* captures a single key, a combo, and a lone modifier (Right Ctrl).
+- [ ] Right Ctrl + NitroSense key opens NitroSense; Left Ctrl + key toggles Num Lock.
+- [ ] *Change…* captures a single key, a combo, and a lone modifier (Right Ctrl);
+  Right Ctrl + Num Lock is captured as that, not as Pause.
+- [ ] *Action*: *Do nothing* / *Keep its normal behavior* hide the *Sends* row.
 - [ ] `Mode=Key`: holding the key repeats the target; Shift+key gives Shift+target.
 - [ ] Changes apply at once without restarting; incomplete ones (no key to send) show a red hint.
 - [ ] Every section of the settings window; changes apply at once; the ⓘ tooltips.
@@ -350,7 +380,12 @@ The tests cover the logic; this needs real keys:
   shows over everything clickable; releasing outside a button does nothing.
 - [ ] Move the settings window to the other monitor and back while dragging: it
   stays sharp, keeps its layout and doesn't stall.
-- [ ] Tray menu on each monitor: opens at the icon, at the right size.
+- [ ] Tray menu (Settings, Pause, Restart, Exit) on each monitor: opens at the icon, at the right size.
+- [ ] Every change in the settings window shows a notice inside it, from the
+  bottom; clicking it does nothing; it moves with the window. With *Show
+  notifications* = *Never*, nothing appears on the desktop (only warnings).
+- [ ] *Restart* from the settings window reopens it in the same section and place.
+- [ ] Reset's question and *Browse…* are sharp on the 125 % monitor.
 - [ ] *General*: *Restart* and *Exit* (red, no confirmation); *About*: the card
   opens the GitHub page, the rows open the FAQ and the issue forms.
 - [ ] Light, dark and *System* themes; switching Windows' mode with the window open.
