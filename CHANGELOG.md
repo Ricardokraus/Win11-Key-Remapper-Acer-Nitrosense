@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.5.1] - 2026-10-05
 
 ### Changed
 
@@ -83,4 +83,5 @@ First public release.
 - Compiled `Win11KeyRemapper.exe` built by GitHub Actions, with SHA-256 sums
   and optional VirusTotal scan links in the release notes.
 
+[0.5.1]: https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/releases/tag/v0.5.1
 [0.5.0]: https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/releases/tag/v0.5.0
