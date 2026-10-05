@@ -164,13 +164,18 @@ Rules:
 - **Moving to a monitor with another scale** (`OnSettingsDpiChanged`): laying
   everything out again takes ~45 ms, which stalled the window in the middle of
   the drag. Like Chromium, the window takes the new size at once showing its
-  current picture scaled (`StretchToNewSize`), and the real layout is done when
+  current picture scaled (`StretchToNewSize`; the picture is composed with
+  `ComposeWindow`, because reading it from the window while it moves between
+  monitors gave a broken mix), and the real layout is done when
   the drag ends (`WM_EXITSIZEMOVE` → `ApplyPendingDpi` → `Flip`), or right away
   if the window wasn't dragged. Meanwhile the controls are hidden and the window
   paints the scaled picture as its background (`OnSettingsErase`): Windows makes
   every control repaint after a DPI change, and they did it at their old places
   on top of the picture. `SWP_NOCOPYBITS`, or Windows copies the old pixels back
-  over the scaled picture. Hover and animations wait meanwhile. `WS_EX_COMPOSITED` was not used:
+  over the scaled picture. Hover and animations wait meanwhile. The monitors
+  don't line up, so part of the window can be outside every screen while it
+  crosses: on every `WM_MOVE` the scaled picture is invalidated again, so no
+  stale pixels show when that part comes back. `WS_EX_COMPOSITED` was not used:
   it fights DWM and makes child windows sluggish ([Raymond
   Chen](https://devblogs.microsoft.com/oldnewthing/20171018-00/?p=97245)).
   Only while the window is visible: `WM_SETREDRAW` on a hidden window would show

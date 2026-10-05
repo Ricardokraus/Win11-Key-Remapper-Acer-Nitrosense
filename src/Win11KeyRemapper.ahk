@@ -1764,6 +1764,16 @@ Flip(rect := 0) {
             DllCall("RedrawWindow", "ptr", item.ctl.Hwnd, "ptr", 0, "ptr", 0, "uint", 0x101)   ; invalidate, update now
 }
 
+PrintListText(ddl, hdc, cw, ch) {
+    font := DllCall("SendMessage", "ptr", ddl.Hwnd, "uint", 0x31, "ptr", 0, "ptr", 0, "ptr")   ; WM_GETFONT
+    old := DllCall("SelectObject", "ptr", hdc, "ptr", font, "ptr")
+    DllCall("SetBkMode", "ptr", hdc, "int", 1)                                    ; transparent
+    DllCall("SetTextColor", "ptr", hdc, "uint", Bgr(UI.th.text))
+    rc := Buffer(16), NumPut("int", Px(4), "int", 0, "int", cw - Px(28), "int", ch, rc)
+    DllCall("DrawText", "ptr", hdc, "str", ddl.Text, "int", -1, "ptr", rc, "uint", 0x8824)  ; one line, centered vertically, "…"
+    DllCall("SelectObject", "ptr", hdc, "ptr", old)
+}
+
 ; Paints the window's client area into hdc as it is laid out now: the
 ; background, then each visible control. Done by hand because PrintWindow
 ; clips to the window's current size. Each control prints into a bitmap of
@@ -1784,6 +1794,8 @@ ComposeWindow(hdc) {
         bmp := DllCall("CreateCompatibleBitmap", "ptr", hdc, "int", cw, "int", ch, "ptr")
         old := DllCall("SelectObject", "ptr", src, "ptr", bmp, "ptr")
         DllCall("SendMessage", "ptr", hwnd, "uint", 0x317, "ptr", src, "ptr", 0xE)    ; WM_PRINT: client, frame, background
+        if (item.ctl.Type = "DDL")          ; a drop-down list doesn't print its text: draw it
+            PrintListText(item.ctl, src, cw, ch)
         DllCall("BitBlt", "ptr", hdc, "int", Px(item.x), "int", Px(item.y), "int", cw, "int", ch, "ptr", src, "int", 0, "int", 0, "uint", 0x00CC0020)
         DllCall("SelectObject", "ptr", src, "ptr", old)
         DllCall("DeleteObject", "ptr", bmp)
@@ -1904,22 +1916,21 @@ OnSettingsDpiChanged(wParam, lParam, msg, hwnd) {
 }
 
 ; The window at its new size, showing the old picture scaled (a moment
-; blurry, never black or half-drawn). The first time, the picture is read
-; from the window and the controls are hidden: Windows makes them repaint
+; blurry, never black or half-drawn). The first time, the picture is composed
+; off-screen (reading it from the window while it moves between monitors
+; gave a broken mix) and the controls are hidden: Windows makes them repaint
 ; after a DPI change, and they did it at their old places, on top of the
 ; picture. Meanwhile the window itself paints the scaled picture as its
 ; background (OnSettingsErase), whatever size it gets during the drag.
 StretchToNewSize(hwnd, rect) {
     if !UI.dpiShot {
-        rc := Buffer(16)
-        DllCall("GetClientRect", "ptr", hwnd, "ptr", rc)
-        UI.shotW := NumGet(rc, 8, "int"), UI.shotH := NumGet(rc, 12, "int")
+        UI.shotW := Px(SL.W), UI.shotH := Px(SL.H)      ; still the old scale
         hdcWin := DllCall("GetDCEx", "ptr", hwnd, "ptr", 0, "uint", 0x2, "ptr")
         UI.shotDC := DllCall("CreateCompatibleDC", "ptr", hdcWin, "ptr")
         UI.dpiShot := DllCall("CreateCompatibleBitmap", "ptr", hdcWin, "int", UI.shotW, "int", UI.shotH, "ptr")
-        UI.shotOld := DllCall("SelectObject", "ptr", UI.shotDC, "ptr", UI.dpiShot, "ptr")
-        DllCall("BitBlt", "ptr", UI.shotDC, "int", 0, "int", 0, "int", UI.shotW, "int", UI.shotH, "ptr", hdcWin, "int", 0, "int", 0, "uint", 0x00CC0020)
         DllCall("ReleaseDC", "ptr", hwnd, "ptr", hdcWin)
+        UI.shotOld := DllCall("SelectObject", "ptr", UI.shotDC, "ptr", UI.dpiShot, "ptr")
+        ComposeWindow(UI.shotDC)
         DllCall("SendMessage", "ptr", hwnd, "uint", 0xB, "ptr", 0, "ptr", 0)      ; hide them without painting
         UI.stretchHidden := []
         for item in UI.items
@@ -1971,8 +1982,14 @@ OnSettingsSizeMove(wParam, lParam, msg, hwnd) {   ; WM_ENTERSIZEMOVE / WM_EXITSI
 }
 
 OnSettingsMove(wParam, lParam, msg, hwnd) {
-    if (UI.gui && hwnd = UI.gui.Hwnd)
-        NoticeFollow()
+    if (!UI.gui || hwnd != UI.gui.Hwnd)
+        return
+    NoticeFollow()
+    ; While crossing monitors, the parts of the window outside every screen
+    ; get no paint (the screens don't line up) and would show stale pixels
+    ; when they come back: paint the scaled picture again (coalesced by Windows)
+    if UI.dpiShot
+        DllCall("RedrawWindow", "ptr", hwnd, "ptr", 0, "ptr", 0, "uint", 0x5)     ; invalidate + erase
 }
 
 ; ---- Notices inside the settings window --------------------------------------
