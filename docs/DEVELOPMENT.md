@@ -153,14 +153,23 @@ Rules:
 - **No flicker, no cut**: changing many controls at once (switching sections, a
   DPI change, the *Sends* row appearing) happens inside `Freeze()`, which stops
   painting with `WM_SETREDRAW`. Then `Flip()` composes the whole client area
-  off-screen (`ComposeWindow`: the background bitmap, then `WM_PRINT` to each
-  visible control at its place), turns painting back on, resizes the window if
-  the DPI changed, copies the image in one `BitBlt` and validates everything so
-  nothing repaints piece by piece. Repainting control by control on screen
-  (`RedrawWindow`) let DWM show half-painted frames at 180 Hz, and resizing before
-  painting (moving to the 150 % monitor) showed the new area black: both were
-  visible "cuts". `PrintWindow` can't be used for the composition: it clips to the
-  window's current size, which is the old one while the window grows. `WS_EX_COMPOSITED` was not used:
+  off-screen (`ComposeWindow`: the background bitmap, then each visible control
+  printed with `WM_PRINT` into a bitmap of its own and copied to its place),
+  turns painting back on, copies the image in one `BitBlt`, validates
+  everything so nothing repaints piece by piece, and lets the drop-down lists
+  repaint themselves (they don't print their text). Repainting control by
+  control on screen (`RedrawWindow`) let DWM show half-painted frames at 180 Hz:
+  a visible "cut". `PrintWindow` isn't used: it clips to the window's current
+  size.
+- **Moving to a monitor with another scale** (`OnSettingsDpiChanged`): laying
+  everything out again takes ~45 ms, which stalled the window in the middle of
+  the drag. Like Chromium, the window takes the new size at once showing its
+  current picture scaled (`StretchToNewSize`, ~5 ms, `COLORONCOLOR`), with
+  hover and animations paused, and the real layout is done when the drag ends
+  (`WM_EXITSIZEMOVE` → `ApplyPendingDpi` → `Flip`), or right away if the window
+  wasn't dragged. `SWP_NOCOPYBITS`, or Windows copies the old pixels back over
+  the scaled picture. Not frozen with `WM_SETREDRAW` meanwhile: DWM doesn't show
+  what's drawn into a frozen window. `WS_EX_COMPOSITED` was not used:
   it fights DWM and makes child windows sluggish ([Raymond
   Chen](https://devblogs.microsoft.com/oldnewthing/20171018-00/?p=97245)).
   Only while the window is visible: `WM_SETREDRAW` on a hidden window would show
@@ -327,7 +336,13 @@ draft's style and restores `GTCFG` afterwards.
 16. **Tests must never show a dialog**: `tests.ahk` sets `OnError` to print the
     error and exit, and `run-tests.ps1` kills the run after 90 s. Never start
     `AutoHotkey64.exe` without a script either: it shows "Script file not found".
-17. **Functions and variables share one namespace**: a local named like a function
+17. **Checking what's really on screen**: an off-screen window (x -32000) has an
+    empty clip region, so nothing drawn into its DC lands anywhere, and
+    `PrintWindow` re-renders the window instead of returning what's shown. To
+    test drawing code, show the window on screen but cloaked
+    (`DwmSetWindowAttribute` 13) and read its surface with `BitBlt` from
+    `GetDCEx(hwnd, 0, DCX_CACHE)`.
+18. **Functions and variables share one namespace**: a local named like a function
     (`animate` next to an `Animate()` function) hides it in that function. Same for
     globals at the top level of a script (`links` *is* `LINKS`).
 

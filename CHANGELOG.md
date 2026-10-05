@@ -41,7 +41,8 @@ First public release.
   the window to a monitor with another scale relays out only what's visible, in
   one batch; every bigger change (switching sections, the new scale) is composed
   off-screen first and shown in one copy: no flicker, no half-drawn or black
-  frames.
+  frames. While dragging it to another monitor, the window keeps up with the
+  mouse (its picture is scaled at once) and gets sharp when you drop it.
 - Message boxes (Reset, install an update) and *Browse…* are sharp on every
   monitor too.
 - Notifications: when (always, only when the app starts, or never), where (top or

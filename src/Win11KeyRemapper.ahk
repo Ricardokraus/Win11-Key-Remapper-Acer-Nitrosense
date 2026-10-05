@@ -1264,6 +1264,8 @@ BuildSettings(page, posX := "", posY := "") {
         OnMessage(0x203, OnSettingsMouseDown)       ; WM_LBUTTONDBLCLK: a fast second click
         OnMessage(0x202, OnSettingsMouseUp)         ; WM_LBUTTONUP
         OnMessage(0x3, OnSettingsMove)              ; WM_MOVE: the notice follows the window
+        OnMessage(0x231, OnSettingsSizeMove)        ; WM_ENTERSIZEMOVE: dragging the window
+        OnMessage(0x232, OnSettingsSizeMove)        ; WM_EXITSIZEMOVE: dropped
         hooked := true
     }
     old := PMv2()
@@ -1283,6 +1285,7 @@ BuildSettings(page, posX := "", posY := "") {
     UI.items := [], UI.itemOf := Map(), UI.icons := [], UI.groups := Map(), UI.nav := Map(), UI.laidOut := Map()
     UI.keyText := Map(), UI.tg := Map(), UI.tgState := Map(), UI.infoTips := Map(), UI.hand := Map()
     UI.widgets := Map(), UI.anims := Map(), UI.hot := 0, UI.frozen := 0, UI.paintOff := false
+    UI.pendingDpi := 0, UI.dpiShot := 0, UI.sizing := false
     UI.kvW := SL.btnX - 10 - SL.kvX
     UI.brushCard := DllCall("CreateSolidBrush", "uint", Bgr(th.card), "ptr")
     for p in PAGES
@@ -1748,7 +1751,7 @@ Flip(rect := 0) {
     DllCall("ReleaseDC", "ptr", hwnd, "ptr", hdcWin)
     DllCall("SendMessage", "ptr", hwnd, "uint", 0xB, "ptr", 1, "ptr", 0)          ; painting back on
     if IsObject(rect)                                                               ; no z-order, no activate, no redraw
-        DllCall("SetWindowPos", "ptr", hwnd, "ptr", 0, "int", rect.x, "int", rect.y, "int", rect.w, "int", rect.h, "uint", 0x1C)
+        DllCall("SetWindowPos", "ptr", hwnd, "ptr", 0, "int", rect.x, "int", rect.y, "int", rect.w, "int", rect.h, "uint", 0x11C)
     hdcWin := DllCall("GetDCEx", "ptr", hwnd, "ptr", 0, "uint", 0x2, "ptr")
     DllCall("BitBlt", "ptr", hdcWin, "int", 0, "int", 0, "int", w, "int", h, "ptr", hdc, "int", 0, "int", 0, "uint", 0x00CC0020)
     DllCall("ReleaseDC", "ptr", hwnd, "ptr", hdcWin)
@@ -1756,24 +1759,36 @@ Flip(rect := 0) {
     DllCall("DeleteObject", "ptr", hbm)
     DllCall("DeleteDC", "ptr", hdc)
     DllCall("RedrawWindow", "ptr", hwnd, "ptr", 0, "ptr", 0, "uint", 0x88)     ; validate all: nothing left to repaint piecemeal
+    for item in UI.items                    ; drop-down lists don't print their text: they paint it themselves
+        if (item.ctl.Type = "DDL" && DllCall("IsWindowVisible", "ptr", item.ctl.Hwnd))
+            DllCall("RedrawWindow", "ptr", item.ctl.Hwnd, "ptr", 0, "ptr", 0, "uint", 0x101)   ; invalidate, update now
 }
 
 ; Paints the window's client area into hdc as it is laid out now: the
-; background, then each visible control asked to print itself at its place.
-; Done by hand because PrintWindow clips to the window's current size.
+; background, then each visible control. Done by hand because PrintWindow
+; clips to the window's current size. Each control prints into a bitmap of
+; its own, at its own origin, then is copied to its place: drop-down lists
+; clip their text in device coordinates, so with a shifted origin it vanished.
 ComposeWindow(hdc) {
-    bg := DllCall("CreateCompatibleDC", "ptr", hdc, "ptr")
-    old := DllCall("SelectObject", "ptr", bg, "ptr", UI.bgBmp, "ptr")
-    DllCall("BitBlt", "ptr", hdc, "int", 0, "int", 0, "int", UI.bgW, "int", UI.bgH, "ptr", bg, "int", 0, "int", 0, "uint", 0x00CC0020)
-    DllCall("SelectObject", "ptr", bg, "ptr", old)
-    DllCall("DeleteDC", "ptr", bg)
+    src := DllCall("CreateCompatibleDC", "ptr", hdc, "ptr")
+    old := DllCall("SelectObject", "ptr", src, "ptr", UI.bgBmp, "ptr")
+    DllCall("BitBlt", "ptr", hdc, "int", 0, "int", 0, "int", UI.bgW, "int", UI.bgH, "ptr", src, "int", 0, "int", 0, "uint", 0x00CC0020)
+    DllCall("SelectObject", "ptr", src, "ptr", old)
+    rc := Buffer(16)
     for item in UI.items {
-        if !(DllCall("GetWindowLong", "ptr", item.ctl.Hwnd, "int", -16) & 0x10000000)   ; WS_VISIBLE (its own)
+        hwnd := item.ctl.Hwnd
+        if !(DllCall("GetWindowLong", "ptr", hwnd, "int", -16) & 0x10000000)        ; WS_VISIBLE (its own)
             continue
-        DllCall("SetViewportOrgEx", "ptr", hdc, "int", Px(item.x), "int", Px(item.y), "ptr", 0)
-        DllCall("SendMessage", "ptr", item.ctl.Hwnd, "uint", 0x317, "ptr", hdc, "ptr", 0xE)  ; WM_PRINT: client, frame, background
+        DllCall("GetWindowRect", "ptr", hwnd, "ptr", rc)
+        cw := NumGet(rc, 8, "int") - NumGet(rc, 0, "int"), ch := NumGet(rc, 12, "int") - NumGet(rc, 4, "int")
+        bmp := DllCall("CreateCompatibleBitmap", "ptr", hdc, "int", cw, "int", ch, "ptr")
+        old := DllCall("SelectObject", "ptr", src, "ptr", bmp, "ptr")
+        DllCall("SendMessage", "ptr", hwnd, "uint", 0x317, "ptr", src, "ptr", 0xE)    ; WM_PRINT: client, frame, background
+        DllCall("BitBlt", "ptr", hdc, "int", Px(item.x), "int", Px(item.y), "int", cw, "int", ch, "ptr", src, "int", 0, "int", 0, "uint", 0x00CC0020)
+        DllCall("SelectObject", "ptr", src, "ptr", old)
+        DllCall("DeleteObject", "ptr", bmp)
     }
-    DllCall("SetViewportOrgEx", "ptr", hdc, "int", 0, "int", 0, "ptr", 0)
+    DllCall("DeleteDC", "ptr", src)
 }
 
 ShowPage(name, *) {
@@ -1859,22 +1874,88 @@ CheckInfoTip() {
     SetTimer(CheckInfoTip, 0)
 }
 
-; Moved to a monitor with another scale: lay out the visible section again,
-; resize as Windows suggests, then paint once
+; Moved to a monitor with another scale. Laying everything out again takes
+; ~50 ms, which stalled the window in the middle of a drag (the "cut"). So,
+; like Chromium does: at once, the window takes the new size with the
+; current picture scaled into it (~2 ms) and painting stays frozen; the real
+; layout is done when the drag ends (WM_EXITSIZEMOVE), or right away if the
+; window wasn't being dragged, and shown in one copy (Flip).
 OnSettingsDpiChanged(wParam, lParam, msg, hwnd) {
     if (!UI.gui || hwnd != UI.gui.Hwnd)
         return
-    if ((wParam & 0xFFFF) = UI.dpi)         ; e.g. first shown on this monitor: already laid out for it
+    dpi := wParam & 0xFFFF
+    if (dpi = UI.dpi && !UI.pendingDpi)     ; e.g. first shown on this monitor: already laid out for it
         return 0
-    x := NumGet(lParam, 0, "int"), y := NumGet(lParam, 4, "int")
-    w := NumGet(lParam, 8, "int") - x, h := NumGet(lParam, 12, "int") - y
+    rect := {x: NumGet(lParam, 0, "int"), y: NumGet(lParam, 4, "int")}
+    rect.w := NumGet(lParam, 8, "int") - rect.x, rect.h := NumGet(lParam, 12, "int") - rect.y
     old := PMv2()
-    UI.dpi := wParam & 0xFFFF, UI.k := UI.dpi / 96
-    Freeze(true)
-    ApplyLayout()
-    Freeze(false, {x: x, y: y, w: w, h: h})    ; composed at the new size, then resized and shown at once
+    if !DllCall("IsWindowVisible", "ptr", hwnd) && !UI.pendingDpi {     ; hidden: no picture to keep
+        UI.dpi := dpi, UI.k := dpi / 96
+        ApplyLayout()
+        DllCall("SetWindowPos", "ptr", hwnd, "ptr", 0, "int", rect.x, "int", rect.y, "int", rect.w, "int", rect.h, "uint", 0x14)
+    } else {
+        StretchToNewSize(hwnd, rect)
+        UI.pendingDpi := dpi
+        if !UI.sizing
+            SetTimer(ApplyPendingDpi, -1)
+    }
     PMv2(old)
     return 0
+}
+
+; The window at its new size, showing the old picture scaled (a moment
+; blurry, never black or half-drawn). The first time, the picture is read from
+; the window; later changes during the same drag reuse it. Not frozen with
+; WM_SETREDRAW: DWM wouldn't show what's drawn then. Nothing else repaints
+; meanwhile: everything is validated, and hover and animations wait.
+StretchToNewSize(hwnd, rect) {
+    if !UI.dpiShot {
+        rc := Buffer(16)
+        DllCall("GetClientRect", "ptr", hwnd, "ptr", rc)
+        UI.shotW := NumGet(rc, 8, "int"), UI.shotH := NumGet(rc, 12, "int")
+        hdcWin := DllCall("GetDCEx", "ptr", hwnd, "ptr", 0, "uint", 0x2, "ptr")
+        UI.shotDC := DllCall("CreateCompatibleDC", "ptr", hdcWin, "ptr")
+        UI.dpiShot := DllCall("CreateCompatibleBitmap", "ptr", hdcWin, "int", UI.shotW, "int", UI.shotH, "ptr")
+        UI.shotOld := DllCall("SelectObject", "ptr", UI.shotDC, "ptr", UI.dpiShot, "ptr")
+        DllCall("BitBlt", "ptr", UI.shotDC, "int", 0, "int", 0, "int", UI.shotW, "int", UI.shotH, "ptr", hdcWin, "int", 0, "int", 0, "uint", 0x00CC0020)
+        DllCall("ReleaseDC", "ptr", hwnd, "ptr", hdcWin)
+    }
+    DllCall("SetWindowPos", "ptr", hwnd, "ptr", 0, "int", rect.x, "int", rect.y, "int", rect.w, "int", rect.h, "uint", 0x11C)
+    rc := Buffer(16)
+    DllCall("GetClientRect", "ptr", hwnd, "ptr", rc)
+    hdcWin := DllCall("GetDCEx", "ptr", hwnd, "ptr", 0, "uint", 0x2, "ptr")
+    DllCall("SetStretchBltMode", "ptr", hdcWin, "int", 3)                         ; COLORONCOLOR: 4x faster than HALFTONE, fine for a moment
+    DllCall("StretchBlt", "ptr", hdcWin, "int", 0, "int", 0, "int", NumGet(rc, 8, "int"), "int", NumGet(rc, 12, "int")
+          , "ptr", UI.shotDC, "int", 0, "int", 0, "int", UI.shotW, "int", UI.shotH, "uint", 0x00CC0020)
+    DllCall("ReleaseDC", "ptr", hwnd, "ptr", hdcWin)
+    DllCall("RedrawWindow", "ptr", hwnd, "ptr", 0, "ptr", 0, "uint", 0x88)         ; nothing else repaints
+}
+
+; The real layout for the new scale, shown in one copy
+ApplyPendingDpi() {
+    if (!UI.gui || !UI.pendingDpi)
+        return
+    old := PMv2()
+    dpi := UI.pendingDpi
+    UI.pendingDpi := 0
+    DllCall("SelectObject", "ptr", UI.shotDC, "ptr", UI.shotOld)
+    DllCall("DeleteObject", "ptr", UI.dpiShot)
+    DllCall("DeleteDC", "ptr", UI.shotDC)
+    UI.dpiShot := 0
+    if (dpi != UI.dpi) {
+        UI.dpi := dpi, UI.k := dpi / 96
+        ApplyLayout()                       ; frozen inside, then shown at once (Flip)
+    } else if DllCall("IsWindowVisible", "ptr", UI.gui.Hwnd)
+        Flip()                              ; back on the same scale: the real picture again
+    PMv2(old)
+}
+
+OnSettingsSizeMove(wParam, lParam, msg, hwnd) {   ; WM_ENTERSIZEMOVE / WM_EXITSIZEMOVE
+    if (!UI.gui || hwnd != UI.gui.Hwnd)
+        return
+    UI.sizing := msg = 0x231
+    if (!UI.sizing && UI.pendingDpi)
+        SetTimer(ApplyPendingDpi, -1)
 }
 
 OnSettingsMove(wParam, lParam, msg, hwnd) {
@@ -1910,15 +1991,15 @@ Notice(title, sub := "Saved", kind := "ok", holdMs := 2500) {
 
 NoticeBuild(title, sub, kind) {
     th := UI.th, k := UI.k, host := UI.gui.Hwnd
-    h := Round(40 * k), pad := Round(12 * k), icon := Round(22 * k)   ; pad: room for the shadow
+    h := Round(46 * k), pad := Round(12 * k), icon := Round(24 * k)   ; pad: room for the shadow
     famSB := FontFamily("Segoe UI Semibold"), famR := FontFamily("Segoe UI")
-    fTitle := GT_Font(famSB ? famSB : famR, 13 * k, famSB ? 0 : 1), fSub := GT_Font(famR, 12.5 * k, 0)
+    fTitle := GT_Font(famSB ? famSB : famR, 13.5 * k, famSB ? 0 : 1), fSub := GT_Font(famR, 13 * k, 0)
     fmt := NewFormat(0)
     DllCall("gdiplus\GdipSetStringFormatTrimming", "ptr", fmt, "int", 3)       ; "…" if it doesn't fit
     mb := GT_Bitmap(1, 1), mg := GT_BmpGraphics(mb)
     tw := GT_MeasureW(mg, title, fTitle, fmt), sw := sub != "" ? GT_MeasureW(mg, sub, fSub, fmt) : 0
     DllCall("gdiplus\GdipDeleteGraphics", "ptr", mg), DllCall("gdiplus\GdipDisposeImage", "ptr", mb)
-    w := Round(Min(9 * k + icon + 10 * k + tw + (sw ? 8 * k + sw : 0) + 16 * k, 520 * k))
+    w := Round(Min(11 * k + icon + 10 * k + tw + (sw ? 8 * k + sw : 0) + 18 * k, 520 * k))
     winW := w + 2 * pad, winH := h + 2 * pad
 
     ; 32-bit canvas for UpdateLayeredWindow
@@ -1936,7 +2017,7 @@ NoticeBuild(title, sub, kind) {
                    , h / 2 + A_Index * k), Argb(0x000000, th.dark ? 0x18 : 0x0C))
     FillPathFree(g, GT_RoundPath(pad, pad, w, h, h / 2), Argb(th.btnFace))
     StrokePathFree(g, GT_RoundPath(pad + 0.5, pad + 0.5, w - 1, h - 1, h / 2 - 0.5), Argb(th.btnEdge), 1)
-    ix := pad + 9 * k, iy := pad + (h - icon) / 2
+    ix := pad + 11 * k, iy := pad + (h - icon) / 2
     color := kind = "warn" ? 0xFFFF9F0A : kind = "ok" ? Argb(th.on) : 0xFF0A84FF
     FillCircle(g, ix, iy, icon, color)
     switch kind {
@@ -2111,7 +2192,7 @@ InClient(hwnd, lParam) {
 
 ; The widget under the mouse (hwnd, 0 = none) gets the hover look
 SetHot(hwnd) {
-    if (UI.hot = hwnd)
+    if (UI.hot = hwnd || UI.pendingDpi)
         return
     if (UI.hot && UI.widgets.Has(UI.hot)) {
         wd := UI.widgets[UI.hot]
@@ -2167,6 +2248,8 @@ AnimTick() {
         SetTimer(AnimTick, 0)
         return
     }
+    if UI.pendingDpi                        ; waiting for the new layout
+        return
     now := A_TickCount
     for wd, a in UI.anims.Clone() {
         p := Min((now - a.t0) / a.ms, 1)
@@ -2488,8 +2571,14 @@ DestroySettings() {
     if !UI.gui
         return
     ToolTip()
-    for fn in [CheckInfoTip, CheckHot, AnimTick]
+    for fn in [CheckInfoTip, CheckHot, AnimTick, ApplyPendingDpi]
         SetTimer(fn, 0)
+    if UI.dpiShot {
+        DllCall("SelectObject", "ptr", UI.shotDC, "ptr", UI.shotOld)
+        DllCall("DeleteObject", "ptr", UI.dpiShot)
+        DllCall("DeleteDC", "ptr", UI.shotDC)
+        UI.dpiShot := 0, UI.pendingDpi := 0
+    }
     DllCall("ReleaseCapture")
     NoticeFree()
     g := UI.gui
