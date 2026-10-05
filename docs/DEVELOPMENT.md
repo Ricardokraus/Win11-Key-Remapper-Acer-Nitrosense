@@ -164,12 +164,13 @@ Rules:
 - **Moving to a monitor with another scale** (`OnSettingsDpiChanged`): laying
   everything out again takes ~45 ms, which stalled the window in the middle of
   the drag. Like Chromium, the window takes the new size at once showing its
-  current picture scaled (`StretchToNewSize`, ~5 ms, `COLORONCOLOR`), with
-  hover and animations paused, and the real layout is done when the drag ends
-  (`WM_EXITSIZEMOVE` → `ApplyPendingDpi` → `Flip`), or right away if the window
-  wasn't dragged. `SWP_NOCOPYBITS`, or Windows copies the old pixels back over
-  the scaled picture. Not frozen with `WM_SETREDRAW` meanwhile: DWM doesn't show
-  what's drawn into a frozen window. `WS_EX_COMPOSITED` was not used:
+  current picture scaled (`StretchToNewSize`), and the real layout is done when
+  the drag ends (`WM_EXITSIZEMOVE` → `ApplyPendingDpi` → `Flip`), or right away
+  if the window wasn't dragged. Meanwhile the controls are hidden and the window
+  paints the scaled picture as its background (`OnSettingsErase`): Windows makes
+  every control repaint after a DPI change, and they did it at their old places
+  on top of the picture. `SWP_NOCOPYBITS`, or Windows copies the old pixels back
+  over the scaled picture. Hover and animations wait meanwhile. `WS_EX_COMPOSITED` was not used:
   it fights DWM and makes child windows sluggish ([Raymond
   Chen](https://devblogs.microsoft.com/oldnewthing/20171018-00/?p=97245)).
   Only while the window is visible: `WM_SETREDRAW` on a hidden window would show
@@ -400,7 +401,8 @@ The tests cover the logic; this needs real keys:
 - [ ] Hover and press: buttons sink onto their lip, switches slide, the hand cursor
   shows over everything clickable; releasing outside a button does nothing.
 - [ ] Move the settings window to the other monitor and back while dragging: it
-  stays sharp, keeps its layout and doesn't stall.
+  follows the mouse without stalling, shows a scaled picture (never a mix of
+  old and new) and gets sharp, with everything in place, when dropped.
 - [ ] Tray menu (Settings, Pause, Restart, Exit) on each monitor: opens at the icon, at the right size.
 - [ ] Every change in the settings window shows a notice inside it, from the
   bottom; clicking it does nothing; it moves with the window. With *Show

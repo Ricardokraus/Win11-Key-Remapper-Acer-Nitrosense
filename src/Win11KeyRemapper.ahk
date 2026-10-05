@@ -1285,7 +1285,7 @@ BuildSettings(page, posX := "", posY := "") {
     UI.items := [], UI.itemOf := Map(), UI.icons := [], UI.groups := Map(), UI.nav := Map(), UI.laidOut := Map()
     UI.keyText := Map(), UI.tg := Map(), UI.tgState := Map(), UI.infoTips := Map(), UI.hand := Map()
     UI.widgets := Map(), UI.anims := Map(), UI.hot := 0, UI.frozen := 0, UI.paintOff := false
-    UI.pendingDpi := 0, UI.dpiShot := 0, UI.sizing := false
+    UI.pendingDpi := 0, UI.dpiShot := 0, UI.sizing := false, UI.stretchHidden := []
     UI.kvW := SL.btnX - 10 - SL.kvX
     UI.brushCard := DllCall("CreateSolidBrush", "uint", Bgr(th.card), "ptr")
     for p in PAGES
@@ -1904,10 +1904,11 @@ OnSettingsDpiChanged(wParam, lParam, msg, hwnd) {
 }
 
 ; The window at its new size, showing the old picture scaled (a moment
-; blurry, never black or half-drawn). The first time, the picture is read from
-; the window; later changes during the same drag reuse it. Not frozen with
-; WM_SETREDRAW: DWM wouldn't show what's drawn then. Nothing else repaints
-; meanwhile: everything is validated, and hover and animations wait.
+; blurry, never black or half-drawn). The first time, the picture is read
+; from the window and the controls are hidden: Windows makes them repaint
+; after a DPI change, and they did it at their old places, on top of the
+; picture. Meanwhile the window itself paints the scaled picture as its
+; background (OnSettingsErase), whatever size it gets during the drag.
 StretchToNewSize(hwnd, rect) {
     if !UI.dpiShot {
         rc := Buffer(16)
@@ -1919,16 +1920,17 @@ StretchToNewSize(hwnd, rect) {
         UI.shotOld := DllCall("SelectObject", "ptr", UI.shotDC, "ptr", UI.dpiShot, "ptr")
         DllCall("BitBlt", "ptr", UI.shotDC, "int", 0, "int", 0, "int", UI.shotW, "int", UI.shotH, "ptr", hdcWin, "int", 0, "int", 0, "uint", 0x00CC0020)
         DllCall("ReleaseDC", "ptr", hwnd, "ptr", hdcWin)
+        DllCall("SendMessage", "ptr", hwnd, "uint", 0xB, "ptr", 0, "ptr", 0)      ; hide them without painting
+        UI.stretchHidden := []
+        for item in UI.items
+            if (DllCall("GetWindowLong", "ptr", item.ctl.Hwnd, "int", -16) & 0x10000000) {
+                DllCall("ShowWindow", "ptr", item.ctl.Hwnd, "int", 0)
+                UI.stretchHidden.Push(item.ctl.Hwnd)
+            }
+        DllCall("SendMessage", "ptr", hwnd, "uint", 0xB, "ptr", 1, "ptr", 0)
     }
-    DllCall("SetWindowPos", "ptr", hwnd, "ptr", 0, "int", rect.x, "int", rect.y, "int", rect.w, "int", rect.h, "uint", 0x11C)
-    rc := Buffer(16)
-    DllCall("GetClientRect", "ptr", hwnd, "ptr", rc)
-    hdcWin := DllCall("GetDCEx", "ptr", hwnd, "ptr", 0, "uint", 0x2, "ptr")
-    DllCall("SetStretchBltMode", "ptr", hdcWin, "int", 3)                         ; COLORONCOLOR: 4x faster than HALFTONE, fine for a moment
-    DllCall("StretchBlt", "ptr", hdcWin, "int", 0, "int", 0, "int", NumGet(rc, 8, "int"), "int", NumGet(rc, 12, "int")
-          , "ptr", UI.shotDC, "int", 0, "int", 0, "int", UI.shotW, "int", UI.shotH, "uint", 0x00CC0020)
-    DllCall("ReleaseDC", "ptr", hwnd, "ptr", hdcWin)
-    DllCall("RedrawWindow", "ptr", hwnd, "ptr", 0, "ptr", 0, "uint", 0x88)         ; nothing else repaints
+    DllCall("SetWindowPos", "ptr", hwnd, "ptr", 0, "int", rect.x, "int", rect.y, "int", rect.w, "int", rect.h, "uint", 0x114)  ; no z-order, no activate, no copy
+    DllCall("RedrawWindow", "ptr", hwnd, "ptr", 0, "ptr", 0, "uint", 0x105)      ; the scaled picture, now (one blit)
 }
 
 ; The real layout for the new scale, shown in one copy
@@ -1938,16 +1940,26 @@ ApplyPendingDpi() {
     old := PMv2()
     dpi := UI.pendingDpi
     UI.pendingDpi := 0
+    Freeze(true)
+    for hwnd in UI.stretchHidden            ; back, still frozen: nothing shows yet
+        DllCall("ShowWindow", "ptr", hwnd, "int", 8)                              ; SW_SHOWNA
+    UI.stretchHidden := []
+    FreeDpiShot()
+    if (dpi != UI.dpi) {
+        UI.dpi := dpi, UI.k := dpi / 96
+        ApplyLayout()
+    }
+    Freeze(false)                           ; composed off-screen, shown at once
+    PMv2(old)
+}
+
+FreeDpiShot() {
+    if !UI.dpiShot
+        return
     DllCall("SelectObject", "ptr", UI.shotDC, "ptr", UI.shotOld)
     DllCall("DeleteObject", "ptr", UI.dpiShot)
     DllCall("DeleteDC", "ptr", UI.shotDC)
     UI.dpiShot := 0
-    if (dpi != UI.dpi) {
-        UI.dpi := dpi, UI.k := dpi / 96
-        ApplyLayout()                       ; frozen inside, then shown at once (Flip)
-    } else if DllCall("IsWindowVisible", "ptr", UI.gui.Hwnd)
-        Flip()                              ; back on the same scale: the real picture again
-    PMv2(old)
 }
 
 OnSettingsSizeMove(wParam, lParam, msg, hwnd) {   ; WM_ENTERSIZEMOVE / WM_EXITSIZEMOVE
@@ -2573,12 +2585,8 @@ DestroySettings() {
     ToolTip()
     for fn in [CheckInfoTip, CheckHot, AnimTick, ApplyPendingDpi]
         SetTimer(fn, 0)
-    if UI.dpiShot {
-        DllCall("SelectObject", "ptr", UI.shotDC, "ptr", UI.shotOld)
-        DllCall("DeleteObject", "ptr", UI.dpiShot)
-        DllCall("DeleteDC", "ptr", UI.shotDC)
-        UI.dpiShot := 0, UI.pendingDpi := 0
-    }
+    FreeDpiShot()
+    UI.pendingDpi := 0
     DllCall("ReleaseCapture")
     NoticeFree()
     g := UI.gui
@@ -2670,6 +2678,14 @@ OnSettingChange(wParam, lParam, msg, hwnd) {
 OnSettingsErase(wParam, lParam, msg, hwnd) {
     if (!UI.gui || hwnd != UI.gui.Hwnd || !UI.bgBmp)
         return
+    if UI.dpiShot {                         ; moving to another monitor: the scaled picture
+        rc := Buffer(16)
+        DllCall("GetClientRect", "ptr", hwnd, "ptr", rc)
+        DllCall("SetStretchBltMode", "ptr", wParam, "int", 3)                     ; COLORONCOLOR: fast, fine for a moment
+        DllCall("StretchBlt", "ptr", wParam, "int", 0, "int", 0, "int", NumGet(rc, 8, "int"), "int", NumGet(rc, 12, "int")
+              , "ptr", UI.shotDC, "int", 0, "int", 0, "int", UI.shotW, "int", UI.shotH, "uint", 0x00CC0020)
+        return 1
+    }
     hdc := DllCall("CreateCompatibleDC", "ptr", wParam, "ptr")
     old := DllCall("SelectObject", "ptr", hdc, "ptr", UI.bgBmp, "ptr")
     DllCall("BitBlt", "ptr", wParam, "int", 0, "int", 0, "int", UI.bgW, "int", UI.bgH
