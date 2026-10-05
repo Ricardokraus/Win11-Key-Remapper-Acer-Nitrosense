@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting! Please check the [FAQ](https://github.com/Ricardokraus/Win11-Key-Remapper#faq) first:
+        Thanks for reporting! Please check the [FAQ](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense#faq) first:
         antivirus warnings, SmartScreen and the Task Manager limitation are covered there.
 
   - type: textarea

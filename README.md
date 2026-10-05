@@ -3,13 +3,13 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Ricardokraus/Win11-Key-Remapper/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Ricardokraus/Win11-Key-Remapper?color=30D158&label=release"></a>
-  <a href="https://github.com/Ricardokraus/Win11-Key-Remapper/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/Ricardokraus/Win11-Key-Remapper/total?color=30D158"></a>
-  <a href="https://github.com/Ricardokraus/Win11-Key-Remapper/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Ricardokraus/Win11-Key-Remapper?color=30D158"></a>
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/Ricardokraus/Win11-Key-Remapper?color=blue"></a>
+  <a href="https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense?color=30D158&label=release"></a>
+  <a href="https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/total?color=30D158"></a>
+  <a href="https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense?color=30D158"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense?color=blue"></a>
   <img alt="Windows 10 | 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4">
   <a href="https://www.autohotkey.com/"><img alt="AutoHotkey v2" src="https://img.shields.io/badge/AutoHotkey-v2-334455?logo=autohotkey&logoColor=white"></a>
-  <a href="https://github.com/Ricardokraus/Win11-Key-Remapper/actions/workflows/build.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/Ricardokraus/Win11-Key-Remapper/build.yml?branch=main&label=build"></a>
+  <a href="https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/actions/workflows/build.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/build.yml?branch=main&label=build"></a>
 </p>
 
 <h3 align="center">
@@ -69,7 +69,7 @@ There are two ways to run it. Both do exactly the same; pick one.
 ### A. The exe (no install)
 
 1. Download `Win11KeyRemapper-vX.Y.Z.zip` from the
-   [latest release](https://github.com/Ricardokraus/Win11-Key-Remapper/releases/latest).
+   [latest release](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/releases/latest).
 2. Extract it to a folder you'll keep, for example
    `%LOCALAPPDATA%\Programs\Win11KeyRemapper` or `Documents\Win11KeyRemapper`
    (not *Downloads*: *Start with Windows* points to wherever the exe is).
@@ -102,7 +102,7 @@ shows the running copy's settings. To switch, click *Exit* first (settings →
 
 Everything goes through GitHub **Issues**. You need a free GitHub account.
 
-1. Open the [Issues tab](https://github.com/Ricardokraus/Win11-Key-Remapper/issues)
+1. Open the [Issues tab](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/issues)
    and search first: maybe someone already reported it. If so, add a 👍 or a comment
    with your details.
 2. If not, click **New issue** and pick a form:
@@ -155,7 +155,7 @@ If you edit the file by hand, restart the app (tray → *Restart*, or settings �
 | Acer Nitro V 16S AI (ANV16S-41) | 11 | NitroSense key `VK FF SC 175` · Win Lock on `FF 159` / off `FF 162` | ✅ Works |
 
 Tried it on another laptop? Please
-[tell us how it went](https://github.com/Ricardokraus/Win11-Key-Remapper/issues/new?template=works_on_my_laptop.yml),
+[tell us how it went](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/issues/new?template=works_on_my_laptop.yml),
 even if it didn't work — that's how this list grows.
 
 ## FAQ
@@ -345,10 +345,10 @@ fell into ([docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)).
 
 ## Star History
 
-<a href="https://star-history.com/#Ricardokraus/Win11-Key-Remapper&Date">
+<a href="https://star-history.com/#Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense&Date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Ricardokraus/Win11-Key-Remapper&type=Date&theme=dark">
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Ricardokraus/Win11-Key-Remapper&type=Date">
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense&type=Date&theme=dark">
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense&type=Date">
   </picture>
 </a>
 

@@ -70,4 +70,4 @@ First public release.
 - Compiled `Win11KeyRemapper.exe` built by GitHub Actions, with SHA-256 sums
   and optional VirusTotal scan links in the release notes.
 
-[0.5.0]: https://github.com/Ricardokraus/Win11-Key-Remapper/releases/tag/v0.5.0
+[0.5.0]: https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/releases/tag/v0.5.0

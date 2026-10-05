@@ -3,10 +3,10 @@
 Thanks for helping! There are several ways to contribute:
 
 - **Report a bug, suggest an idea or ask a question**:
-  [open an issue](https://github.com/Ricardokraus/Win11-Key-Remapper/issues/new/choose)
+  [open an issue](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/issues/new/choose)
   and pick the matching form.
 - **Tell us about your laptop**: the
-  [Works on my laptop](https://github.com/Ricardokraus/Win11-Key-Remapper/issues/new?template=works_on_my_laptop.yml)
+  [Works on my laptop](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/issues/new?template=works_on_my_laptop.yml)
   form grows the tested models list in the README.
 - **Improve the code or the docs** with a pull request (below).
 

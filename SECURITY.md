@@ -2,14 +2,14 @@
 
 ## Supported versions
 
-Only the [latest release](https://github.com/Ricardokraus/Win11-Key-Remapper/releases/latest)
+Only the [latest release](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/releases/latest)
 gets fixes. The app can update itself (Settings → *Updates* → *Check now*).
 
 ## Reporting a vulnerability
 
 Please **don't open a public issue** for security problems. Report them
 privately through GitHub instead:
-[**Report a vulnerability**](https://github.com/Ricardokraus/Win11-Key-Remapper/security/advisories/new)
+[**Report a vulnerability**](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/security/advisories/new)
 (Security tab → *Report a vulnerability*).
 
 Include what you found, how to reproduce it and which version you used. You'll

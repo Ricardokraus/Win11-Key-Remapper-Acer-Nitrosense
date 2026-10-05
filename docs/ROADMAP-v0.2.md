@@ -5,7 +5,7 @@
 Decisions taken with the user:
 
 - Name: **Windows 11 Key Remapper** (subtitle: *NitroSense Key Remapper*). Exe:
-  `Win11KeyRemapper.exe`. Repo: `Win11-Key-Remapper`.
+  `Win11KeyRemapper.exe`. Repo: `Win11-Key-Remapper-Acer-Nitrosense`.
 - Language: **English** (repo, UI, README). License: **MIT**.
 - Skip a config-only v0.1: ship v0.2 directly **with a visual settings panel**.
 - No separate KeyProbe tool (the user found it annoying, it filled the screen). Key

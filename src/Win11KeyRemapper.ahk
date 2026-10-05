@@ -11,7 +11,7 @@ Persistent
 
 ; ============================================================================
 ; Windows 11 Key Remapper (NitroSense Key Remapper)
-; https://github.com/Ricardokraus/Win11-Key-Remapper - MIT License
+; https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense - MIT License
 ;
 ; Remaps the Acer NitroSense key (or any other key) with a single low-level
 ; keyboard hook (WH_KEYBOARD_LL), plus an optional shortcut that opens the
@@ -33,8 +33,8 @@ Persistent
 #Include %A_ScriptDir%\lib\GlassToast.ahk
 
 APP := {name: "Windows 11 Key Remapper", short: "Key Remapper", version: "0.5.0"
-      , repo: "https://github.com/Ricardokraus/Win11-Key-Remapper"
-      , api: "https://api.github.com/repos/Ricardokraus/Win11-Key-Remapper/releases/latest"
+      , repo: "https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense"
+      , api: "https://api.github.com/repos/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/releases/latest"
       , lnk: A_Startup "\Windows 11 Key Remapper.lnk"
       , dataDir: A_AppData "\Win11KeyRemapper"}
 
