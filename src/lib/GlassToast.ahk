@@ -2,13 +2,9 @@
 ; GlassToast.ahk — "liquid glass" style notification for AutoHotkey v2
 ; Part of Windows 11 Key Remapper (MIT License)
 ;
-; GlassToast(title, sub, kind := "ok", holdMs := 5000, host := 0, hostTheme := "")
+; GlassToast(title, sub, kind := "ok", holdMs := 5000)
 ;   kind: "ok" (green check), "warn" (orange !), "info" (blue pause bars),
 ;         "update" (blue arrow)
-;   host: a window to show it in instead (an app's own notice): at the bottom
-;         center of its client area, solid in hostTheme ("light" | "dark"),
-;         rises a little while fading in, can't be clicked away (clicks go
-;         through to the window) and follows the window (GT_FollowHost).
 ; Style, read when each toast is built:
 ;   GTCFG.position:  TopCenter | TopRight | TopLeft | BottomCenter | BottomRight | BottomLeft
 ;   GTCFG.animation: Slide | Fade | None
@@ -56,22 +52,20 @@ GT_THEMES := {
 }
 
 GT := {phase: "", t0: 0, holdUntil: 0, holdMs: 5000, anim: "Slide"
-     , xVis: 0, yVis: 0, xHid: 0, yHid: 0, winW: 0, H: 0, gui: 0, hwnd: 0
-     , host: 0, hostX: 0, hostY: 0}
+     , xVis: 0, yVis: 0, xHid: 0, yHid: 0, winW: 0, H: 0, gui: 0, hwnd: 0}
 
 DllCall("LoadLibrary", "str", "winmm", "ptr")      ; keep timeBeginPeriod loaded
 OnMessage(0x201, GT_Click)                          ; WM_LBUTTONDOWN -> dismiss
 OnExit((*) => GT_Free())
 
-GlassToast(title, sub, kind := "ok", holdMs := 5000, host := 0, hostTheme := "") {
+GlassToast(title, sub, kind := "ok", holdMs := 5000) {
     Critical
     global GT, GTCFG, GT_THEMES, GT_KINDS
     GT_Free()                                       ; replace any visible toast
-    GT.host := host && DllCall("IsWindowVisible", "ptr", host) ? host : 0
-    GT.anim := GT.host ? "Slide" : GTCFG.animation
+    GT.anim := GTCFG.animation
     oldCtx := DllCall("SetThreadDpiAwarenessContext", "ptr", -4, "ptr")
     try {
-        GT_Build(title, sub, GT_KINDS.Has(kind) ? kind : "ok", hostTheme)
+        GT_Build(title, sub, GT_KINDS.Has(kind) ? kind : "ok")
     } finally {
         DllCall("SetThreadDpiAwarenessContext", "ptr", oldCtx, "ptr")
     }
@@ -118,24 +112,14 @@ GT_Move(x, y, alpha) {                              ; no bitmap: DWM reuses the 
     DllCall("SetThreadDpiAwarenessContext", "ptr", oldCtx, "ptr")
 }
 
-GT_Build(title, sub, kind, hostTheme := "") {
+GT_Build(title, sub, kind) {
     global GT, GTCFG, GT_THEMES, GT_KINDS
 
-    if GT.host {                                    ; inside a window: its client area and scale
-        rc := Buffer(16), pt := Buffer(8, 0)
-        DllCall("GetClientRect", "ptr", GT.host, "ptr", rc)
-        DllCall("ClientToScreen", "ptr", GT.host, "ptr", pt)
-        mL := NumGet(pt, 0, "int"), mT := NumGet(pt, 4, "int")
-        mR := mL + NumGet(rc, 8, "int"), mB := mT + NumGet(rc, 12, "int")
-        GT.hostX := mL, GT.hostY := mT
-        S := DllCall("GetDpiForWindow", "ptr", GT.host, "uint") / 96
-    } else {
-        ; Monitor under the mouse, its work area, its full area and its scale
-        mon := GT_MouseMonitor()
-        MonitorGetWorkArea(mon, &mL, &mT, &mR, &mB)
-        MonitorGet(mon, &fL, &fT, &fR, &fB)
-        S := GT_MonitorDpi(mon) / 96
-    }
+    ; Monitor under the mouse, its work area, its full area and its scale
+    mon := GT_MouseMonitor()
+    MonitorGetWorkArea(mon, &mL, &mT, &mR, &mB)
+    MonitorGet(mon, &fL, &fT, &fR, &fB)
+    S := GT_MonitorDpi(mon) / 96
     ch := Round(GTCFG.h * S), R := Round(GTCFG.radius * S)
     isz := Round(GTCFG.iconSize * S), m := (ch - isz) / 2
     PAD := Round((GTCFG.shadowReach + 10) * S)
@@ -173,18 +157,14 @@ GT_Build(title, sub, kind, hostTheme := "") {
     pw := textX + Max(GT_MeasureW(g, title, fTitle, fmtL), GT_MeasureW(g, sub, fSub, fmtL)) + 24 * S
     pw := Round(Max(GTCFG.minW * S, Min(GTCFG.maxW * S, pw)))
     winW := pw + 2 * PAD
-    if GT.host {                                    ; bottom center, rises a little
-        pos := {xVis: mL + (mR - mL - winW) // 2, yVis: mB - Round(20 * S) - ch - PAD}
-        pos.xHid := pos.xVis, pos.yHid := pos.yVis + Round(22 * S)
-    } else
-        pos := GT_Placement(mL, mT, mR, mB, winW, canvH, PAD, Round(GTCFG.top * S), GTCFG.position, GT.anim)
+    pos := GT_Placement(mL, mT, mR, mB, winW, canvH, PAD, Round(GTCFG.top * S), GTCFG.position, GT.anim)
     GT.xVis := pos.xVis, GT.yVis := pos.yVis, GT.xHid := pos.xHid, GT.yHid := pos.yHid
     GT.winW := winW, GT.H := canvH
 
     ; Background: capture the card area (final position) and blur it. The
     ; margin is larger than the blur radius (clean edges), but the capture
     ; stays on this monitor.
-    glass := GTCFG.glass && !GT.host, blurred := 0, tex := 0
+    glass := GTCFG.glass, blurred := 0, tex := 0
     if glass {
         marg := Round(90 * S)
         cardX := GT.xVis + PAD, cardY := GT.yVis + PAD
@@ -196,7 +176,7 @@ GT_Build(title, sub, kind, hostTheme := "") {
         DllCall("gdiplus\GdipTranslateTextureTransform", "ptr", tex
               , "float", capX - GT.xVis, "float", capY - GT.yVis, "int", 0)
     } else
-        th := (hostTheme != "" ? hostTheme = "light" : GT_SolidLight()) ? GT_THEMES.solidLight : GT_THEMES.solidDark
+        th := GT_SolidLight() ? GT_THEMES.solidLight : GT_THEMES.solidDark
 
     ; --- Draw (once) ---
     x := PAD, y := PAD, w := pw, h := ch
@@ -257,8 +237,7 @@ GT_Build(title, sub, kind, hostTheme := "") {
     DllCall("gdiplus\GdipDeletePath", "ptr", card)
 
     ; Window: the bitmap is sent to DWM ONCE (invisible, above the screen)
-    gw := Gui("-Caption +ToolWindow +E0x80000 +E0x08000000"                 ; layered + no-activate
-            . (GT.host ? " +E0x20 +Owner" GT.host : " +AlwaysOnTop"))            ; in a window: click-through, above it
+    gw := Gui("-Caption +AlwaysOnTop +ToolWindow +E0x80000 +E0x08000000")   ; layered + no-activate
     gw.Show("NA x-32000 y-32000 w1 h1")
     GT.gui := gw, GT.hwnd := gw.Hwnd
     pt := Buffer(8), NumPut("int", GT.xHid, "int", GT.yHid, pt)
@@ -326,7 +305,7 @@ GT_Step() {
 GT_Click(wParam, lParam, msg, hwnd) {
     Critical
     global GT, GTCFG
-    if (!GT.hwnd || hwnd != GT.hwnd || GT.host)
+    if (!GT.hwnd || hwnd != GT.hwnd)
         return
     now := A_TickCount
     if (GT.phase = "hold")
@@ -345,25 +324,7 @@ GT_Free() {
     if GT.gui {
         try GT.gui.Destroy()
     }
-    GT.gui := 0, GT.hwnd := 0, GT.phase := "", GT.host := 0
-}
-
-; The window holding a notice moved: move the notice with it
-GT_FollowHost() {
-    global GT
-    if (!GT.hwnd || !GT.host)
-        return
-    oldCtx := DllCall("SetThreadDpiAwarenessContext", "ptr", -4, "ptr")
-    pt := Buffer(8, 0)
-    DllCall("ClientToScreen", "ptr", GT.host, "ptr", pt)
-    DllCall("SetThreadDpiAwarenessContext", "ptr", oldCtx, "ptr")
-    dx := NumGet(pt, 0, "int") - GT.hostX, dy := NumGet(pt, 4, "int") - GT.hostY
-    if (!dx && !dy)
-        return
-    GT.hostX += dx, GT.hostY += dy
-    GT.xVis += dx, GT.xHid += dx, GT.yVis += dy, GT.yHid += dy
-    if (GT.phase = "hold")
-        GT_Move(GT.xVis, GT.yVis, 255)
+    GT.gui := 0, GT.hwnd := 0, GT.phase := ""
 }
 
 GT_SolidLight() {                         ; light or dark solid card

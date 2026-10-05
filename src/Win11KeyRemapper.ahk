@@ -150,6 +150,7 @@ CAP := {active: false, target: "", mods: Map(), downs: Map(), result: 0}
 HOOK := {proc: 0, h: 0}
 NS := {checked: false, target: "", label: ""}   ; NitroSense auto-detection cache
 UI := {gui: 0}
+NT := {gui: 0, hwnd: 0, phase: "", last: ""}   ; the notice inside the settings window
 ; Settings window layout, in logical pixels
 SL := {W: 820, H: 630, side: 220, cx: 236, cw: 560, rx: 780, kvX: 426, btnX: 684}
 ; Update check: state "" | checking | latest | available | error
@@ -881,17 +882,10 @@ LaunchApp() {
 ; Toasts, session and display events
 ; ============================================================================
 
-; Notifications. What happens in the settings window is told inside it
-; (Notice: solid, rises from the bottom, can't be clicked away); the rest are
-; system notifications (SystemToast), which ToastWhen=Never turns off except
-; warnings that need you. The startup/unlock one is StatusToast.
-Notice(title, sub := "Saved and applied", kind := "ok", holdMs := 2500) {
-    if UI.gui
-        GlassToast(title, sub, kind, holdMs, UI.gui.Hwnd, UI.themeName)
-    else
-        SystemToast(title, sub, kind, Max(holdMs, 4000))
-}
-
+; System notifications (GlassToast), which ToastWhen=Never turns off except
+; warnings that need you. The startup/unlock one is StatusToast. What happens
+; in the settings window is told inside it instead: Notice, a separate,
+; smaller component (see "Notices inside the settings window").
 SystemToast(title, sub, kind := "ok", holdMs := 5000) {
     if (CFG.toastWhen != "Never" || kind = "warn")
         GlassToast(title, sub, kind, holdMs)
@@ -1109,7 +1103,7 @@ UpdateDone(state, manual) {
     } else if (manual && state = "latest")
         Notice("You're up to date", APP.short " " APP.version)
     else if (manual && state = "error")
-        Notice("Couldn't check for updates", "Check your connection and try again", "warn", 4000)
+        Notice("Couldn't check for updates", "Check your connection", "warn", 4000)
 }
 
 ; Minimal reading of GitHub's "latest release" JSON
@@ -1269,7 +1263,7 @@ BuildSettings(page, posX := "", posY := "") {
         OnMessage(0x201, OnSettingsMouseDown)       ; WM_LBUTTONDOWN
         OnMessage(0x203, OnSettingsMouseDown)       ; WM_LBUTTONDBLCLK: a fast second click
         OnMessage(0x202, OnSettingsMouseUp)         ; WM_LBUTTONUP
-        OnMessage(0x3, OnSettingsMove)              ; WM_MOVE: a notice inside follows the window
+        OnMessage(0x3, OnSettingsMove)              ; WM_MOVE: the notice follows the window
         hooked := true
     }
     old := PMv2()
@@ -1723,38 +1717,63 @@ class UiWidget {
 
 ; Stops painting while many controls change, then shows the result in one
 ; copy (Flip). Nests; does nothing while the window is hidden (WM_SETREDRAW
-; would show it). show := false: the caller flips (after resizing).
-Freeze(on, show := true) {
+; would show it). rect: resize the window too (a DPI change), see Flip.
+Freeze(on, rect := 0) {
     hwnd := UI.gui.Hwnd
     if on {
         if (UI.frozen++ = 0 && (UI.paintOff := DllCall("IsWindowVisible", "ptr", hwnd)))
             DllCall("SendMessage", "ptr", hwnd, "uint", 0xB, "ptr", 0, "ptr", 0)      ; WM_SETREDRAW
-    } else if (--UI.frozen = 0 && UI.paintOff) {
+    } else if (--UI.frozen = 0) {
+        if UI.paintOff
+            Flip(rect)
+        else if IsObject(rect)
+            DllCall("SetWindowPos", "ptr", hwnd, "ptr", 0, "int", rect.x, "int", rect.y, "int", rect.w, "int", rect.h, "uint", 0x14)
         UI.paintOff := false
-        DllCall("SendMessage", "ptr", hwnd, "uint", 0xB, "ptr", 1, "ptr", 0)
-        if show
-            Flip()
     }
 }
 
-; Paints the whole window (with its controls) off-screen and copies it to the
-; screen at once. Repainting control by control on screen showed half-drawn
-; frames at high refresh rates: that was the "cut" when switching sections.
-Flip() {
-    hwnd := UI.gui.Hwnd, rc := Buffer(16)
-    DllCall("GetClientRect", "ptr", hwnd, "ptr", rc)
-    w := NumGet(rc, 8, "int"), h := NumGet(rc, 12, "int")
+; Shows the window's new look in one copy, never half-drawn: it's composed
+; off-screen first (ComposeWindow), still frozen; then painting is turned
+; back on, the window is resized if needed and the image copied at once.
+; Repainting control by control on screen showed half-drawn frames at high
+; refresh rates, and resizing first (a monitor with a bigger scale) showed
+; the new area black until it was painted: those were the "cuts".
+Flip(rect := 0) {
+    hwnd := UI.gui.Hwnd, w := Px(SL.W), h := Px(SL.H)
     hdcWin := DllCall("GetDCEx", "ptr", hwnd, "ptr", 0, "uint", 0x2, "ptr")      ; DCX_CACHE, children not clipped
     hdc := DllCall("CreateCompatibleDC", "ptr", hdcWin, "ptr")
     hbm := DllCall("CreateCompatibleBitmap", "ptr", hdcWin, "int", w, "int", h, "ptr")
     old := DllCall("SelectObject", "ptr", hdc, "ptr", hbm, "ptr")
-    DllCall("PrintWindow", "ptr", hwnd, "ptr", hdc, "uint", 1)                  ; client + children, via WM_PRINT
+    ComposeWindow(hdc)
+    DllCall("ReleaseDC", "ptr", hwnd, "ptr", hdcWin)
+    DllCall("SendMessage", "ptr", hwnd, "uint", 0xB, "ptr", 1, "ptr", 0)          ; painting back on
+    if IsObject(rect)                                                               ; no z-order, no activate, no redraw
+        DllCall("SetWindowPos", "ptr", hwnd, "ptr", 0, "int", rect.x, "int", rect.y, "int", rect.w, "int", rect.h, "uint", 0x1C)
+    hdcWin := DllCall("GetDCEx", "ptr", hwnd, "ptr", 0, "uint", 0x2, "ptr")
     DllCall("BitBlt", "ptr", hdcWin, "int", 0, "int", 0, "int", w, "int", h, "ptr", hdc, "int", 0, "int", 0, "uint", 0x00CC0020)
+    DllCall("ReleaseDC", "ptr", hwnd, "ptr", hdcWin)
     DllCall("SelectObject", "ptr", hdc, "ptr", old)
     DllCall("DeleteObject", "ptr", hbm)
     DllCall("DeleteDC", "ptr", hdc)
-    DllCall("ReleaseDC", "ptr", hwnd, "ptr", hdcWin)
     DllCall("RedrawWindow", "ptr", hwnd, "ptr", 0, "ptr", 0, "uint", 0x88)     ; validate all: nothing left to repaint piecemeal
+}
+
+; Paints the window's client area into hdc as it is laid out now: the
+; background, then each visible control asked to print itself at its place.
+; Done by hand because PrintWindow clips to the window's current size.
+ComposeWindow(hdc) {
+    bg := DllCall("CreateCompatibleDC", "ptr", hdc, "ptr")
+    old := DllCall("SelectObject", "ptr", bg, "ptr", UI.bgBmp, "ptr")
+    DllCall("BitBlt", "ptr", hdc, "int", 0, "int", 0, "int", UI.bgW, "int", UI.bgH, "ptr", bg, "int", 0, "int", 0, "uint", 0x00CC0020)
+    DllCall("SelectObject", "ptr", bg, "ptr", old)
+    DllCall("DeleteDC", "ptr", bg)
+    for item in UI.items {
+        if !(DllCall("GetWindowLong", "ptr", item.ctl.Hwnd, "int", -16) & 0x10000000)   ; WS_VISIBLE (its own)
+            continue
+        DllCall("SetViewportOrgEx", "ptr", hdc, "int", Px(item.x), "int", Px(item.y), "ptr", 0)
+        DllCall("SendMessage", "ptr", item.ctl.Hwnd, "uint", 0x317, "ptr", hdc, "ptr", 0xE)  ; WM_PRINT: client, frame, background
+    }
+    DllCall("SetViewportOrgEx", "ptr", hdc, "int", 0, "int", 0, "ptr", 0)
 }
 
 ShowPage(name, *) {
@@ -1853,17 +1872,162 @@ OnSettingsDpiChanged(wParam, lParam, msg, hwnd) {
     UI.dpi := wParam & 0xFFFF, UI.k := UI.dpi / 96
     Freeze(true)
     ApplyLayout()
-    Freeze(false, false)
-    DllCall("SetWindowPos", "ptr", hwnd, "ptr", 0, "int", x, "int", y, "int", w, "int", h, "uint", 0x1C)  ; no z-order, no activate, no redraw
-    if DllCall("IsWindowVisible", "ptr", hwnd)
-        Flip()
+    Freeze(false, {x: x, y: y, w: w, h: h})    ; composed at the new size, then resized and shown at once
     PMv2(old)
     return 0
 }
 
 OnSettingsMove(wParam, lParam, msg, hwnd) {
     if (UI.gui && hwnd = UI.gui.Hwnd)
-        GT_FollowHost()
+        NoticeFollow()
+}
+
+; ---- Notices inside the settings window --------------------------------------
+; What the user just did ("Theme: Dark · Saved", the answer of Check now,
+; errors). Separate from the system notifications on purpose: its own small
+; window, state (NT) and timer, so neither replaces the other and the
+; notifications setting has nothing to do with it. A solid pill drawn once,
+; at the bottom center of the window; it rises a little while fading in,
+; stays, and goes. The window is owned by the settings window (always above
+; it, closed with it) and click-through, so it can't be clicked away.
+
+Notice(title, sub := "Saved", kind := "ok", holdMs := 2500) {
+    if !UI.gui                              ; window closed: a system notification
+        return SystemToast(title, sub, kind, Max(holdMs, 4000))
+    NT.last := title " · " sub
+    if !DllCall("IsWindowVisible", "ptr", UI.gui.Hwnd)
+        return
+    NoticeFree()
+    old := PMv2()
+    try NoticeBuild(title, sub, kind)
+    PMv2(old)
+    if !NT.hwnd
+        return
+    NT.phase := "in", NT.t0 := A_TickCount, NT.holdMs := holdMs
+    NT.inMs := AnimationsOn() ? 240 : 0
+    SetTimer(NoticeStep, 10)
+}
+
+NoticeBuild(title, sub, kind) {
+    th := UI.th, k := UI.k, host := UI.gui.Hwnd
+    h := Round(40 * k), pad := Round(12 * k), icon := Round(22 * k)   ; pad: room for the shadow
+    famSB := FontFamily("Segoe UI Semibold"), famR := FontFamily("Segoe UI")
+    fTitle := GT_Font(famSB ? famSB : famR, 13 * k, famSB ? 0 : 1), fSub := GT_Font(famR, 12.5 * k, 0)
+    fmt := NewFormat(0)
+    DllCall("gdiplus\GdipSetStringFormatTrimming", "ptr", fmt, "int", 3)       ; "…" if it doesn't fit
+    mb := GT_Bitmap(1, 1), mg := GT_BmpGraphics(mb)
+    tw := GT_MeasureW(mg, title, fTitle, fmt), sw := sub != "" ? GT_MeasureW(mg, sub, fSub, fmt) : 0
+    DllCall("gdiplus\GdipDeleteGraphics", "ptr", mg), DllCall("gdiplus\GdipDisposeImage", "ptr", mb)
+    w := Round(Min(9 * k + icon + 10 * k + tw + (sw ? 8 * k + sw : 0) + 16 * k, 520 * k))
+    winW := w + 2 * pad, winH := h + 2 * pad
+
+    ; 32-bit canvas for UpdateLayeredWindow
+    bi := Buffer(40, 0)
+    NumPut("uint", 40, bi, 0), NumPut("int", winW, bi, 4), NumPut("int", -winH, bi, 8)
+    NumPut("ushort", 1, bi, 12), NumPut("ushort", 32, bi, 14)
+    hdc := DllCall("CreateCompatibleDC", "ptr", 0, "ptr"), bits := 0
+    hbm := DllCall("CreateDIBSection", "ptr", hdc, "ptr", bi, "uint", 0, "ptr*", &bits, "ptr", 0, "uint", 0, "ptr")
+    obm := DllCall("SelectObject", "ptr", hdc, "ptr", hbm, "ptr")
+    g := 0
+    DllCall("gdiplus\GdipCreateFromHDC", "ptr", hdc, "ptr*", &g)
+    GT_Quality(g)                           ; antialiased text: the background is transparent
+    loop 4                                  ; soft shadow: a few faint, growing pills
+        FillPathFree(g, GT_RoundPath(pad - A_Index * k, pad - A_Index * k + 2 * k, w + 2 * A_Index * k, h + 2 * A_Index * k
+                   , h / 2 + A_Index * k), Argb(0x000000, th.dark ? 0x18 : 0x0C))
+    FillPathFree(g, GT_RoundPath(pad, pad, w, h, h / 2), Argb(th.btnFace))
+    StrokePathFree(g, GT_RoundPath(pad + 0.5, pad + 0.5, w - 1, h - 1, h / 2 - 0.5), Argb(th.btnEdge), 1)
+    ix := pad + 9 * k, iy := pad + (h - icon) / 2
+    color := kind = "warn" ? 0xFFFF9F0A : kind = "ok" ? Argb(th.on) : 0xFF0A84FF
+    FillCircle(g, ix, iy, icon, color)
+    switch kind {
+        case "warn":   GT_Exclaim(g, ix, iy, icon, 0xFFFFFFFF)
+        case "info":   GT_PauseBars(g, ix, iy, icon, 0xFFFFFFFF)
+        case "update": GT_DownArrow(g, ix, iy, icon, 0xFFFFFFFF)
+        default:       GT_Check(g, ix, iy, icon, 0xFFFFFFFF)
+    }
+    tx := ix + icon + 10 * k
+    GT_Text(g, title, fTitle, Argb(th.text), tx, pad, tw + 2, h, fmt)
+    if sw
+        GT_Text(g, sub, fSub, Argb(th.sub), tx + tw + 8 * k, pad, w - (tx - pad) - tw - 8 * k - 12 * k, h, fmt)
+    FreeAll([fTitle, fSub], [fmt])
+    DllCall("gdiplus\GdipDeleteGraphics", "ptr", g)
+
+    ; Bottom center of the window's client area
+    rc := Buffer(16), pt := Buffer(8, 0)
+    DllCall("GetClientRect", "ptr", host, "ptr", rc)
+    DllCall("ClientToScreen", "ptr", host, "ptr", pt)
+    NT.hostX := NumGet(pt, 0, "int"), NT.hostY := NumGet(pt, 4, "int")
+    NT.x := NT.hostX + (NumGet(rc, 8, "int") - winW) // 2
+    NT.yVis := NT.hostY + NumGet(rc, 12, "int") - Round(16 * k) - h - pad
+    NT.yHid := NT.yVis + Round(12 * k)
+
+    gw := Gui("-Caption +ToolWindow +E0x80000 +E0x08000000 +E0x20 +Owner" host)   ; layered, no-activate, click-through
+    gw.Show("NA x-32000 y-32000 w1 h1")
+    NT.gui := gw, NT.hwnd := gw.Hwnd
+    pos := Buffer(8), NumPut("int", NT.x, "int", NT.yHid, pos)
+    sz := Buffer(8), NumPut("int", winW, "int", winH, sz)
+    src := Buffer(8, 0)
+    DllCall("UpdateLayeredWindow", "ptr", NT.hwnd, "ptr", 0, "ptr", pos, "ptr", sz
+          , "ptr", hdc, "ptr", src, "uint", 0, "uint*", 1 << 24, "uint", 2)          ; drawn once, alpha 0
+    DllCall("SelectObject", "ptr", hdc, "ptr", obm)
+    DllCall("DeleteObject", "ptr", hbm)
+    DllCall("DeleteDC", "ptr", hdc)
+}
+
+NoticeStep() {
+    Critical
+    now := A_TickCount
+    switch NT.phase {
+        case "in":
+            p := NT.inMs ? Min((now - NT.t0) / NT.inMs, 1) : 1
+            y := NT.yHid + (NT.yVis - NT.yHid) * GT_EaseOutBack(p, 1.4), a := 255 * GT_EaseOutCubic(p)
+            if (p >= 1)
+                NT.phase := "hold", NT.until := now + NT.holdMs
+        case "hold":
+            if (now >= NT.until)
+                NT.phase := "out", NT.t0 := now
+            return
+        case "out":
+            p := NT.inMs ? Min((now - NT.t0) / 180, 1) : 1
+            if (p >= 1)
+                return NoticeFree()
+            e := GT_EaseInCubic(p)
+            y := NT.yVis + (NT.yHid - NT.yVis) * e, a := 255 * (1 - e)
+        default:
+            SetTimer(NoticeStep, 0)
+            return
+    }
+    NoticeMove(y, a)
+}
+
+NoticeMove(y, alpha) {                  ; no bitmap: only the position and the fade change
+    old := PMv2()
+    pt := Buffer(8), NumPut("int", NT.x, "int", Round(y), pt)
+    blend := (Max(0, Min(255, Round(alpha))) << 16) | (1 << 24)
+    DllCall("UpdateLayeredWindow", "ptr", NT.hwnd, "ptr", 0, "ptr", pt, "ptr", 0
+          , "ptr", 0, "ptr", 0, "uint", 0, "uint*", blend, "uint", 2)
+    PMv2(old)
+}
+
+NoticeFollow() {                        ; the settings window moved
+    if !NT.hwnd
+        return
+    old := PMv2()
+    pt := Buffer(8, 0)
+    DllCall("ClientToScreen", "ptr", UI.gui.Hwnd, "ptr", pt)
+    PMv2(old)
+    dx := NumGet(pt, 0, "int") - NT.hostX, dy := NumGet(pt, 4, "int") - NT.hostY
+    NT.hostX += dx, NT.hostY += dy, NT.x += dx, NT.yVis += dy, NT.yHid += dy
+    if (NT.phase = "hold" && (dx || dy))
+        NoticeMove(NT.yVis, 255)
+}
+
+NoticeFree() {
+    SetTimer(NoticeStep, 0)
+    if NT.gui {
+        try NT.gui.Destroy()
+    }
+    NT.gui := 0, NT.hwnd := 0, NT.phase := ""
 }
 
 ApplyLayout() {
@@ -2327,8 +2491,7 @@ DestroySettings() {
     for fn in [CheckInfoTip, CheckHot, AnimTick]
         SetTimer(fn, 0)
     DllCall("ReleaseCapture")
-    if (GT.host && GT.host = UI.gui.Hwnd)  ; a notice inside the window goes with it
-        GT_Free()
+    NoticeFree()
     g := UI.gui
     UI.gui := 0, UI.hot := 0
     for hwnd, wd in UI.widgets
@@ -2508,6 +2671,13 @@ StrokePathFree(g, p, argb, width) {
     DllCall("gdiplus\GdipDrawPath", "ptr", g, "ptr", pen, "ptr", p)
     DllCall("gdiplus\GdipDeletePen", "ptr", pen)
     DllCall("gdiplus\GdipDeletePath", "ptr", p)
+}
+
+FillCircle(g, x, y, d, argb) {
+    brush := 0
+    DllCall("gdiplus\GdipCreateSolidFill", "uint", argb, "ptr*", &brush)
+    DllCall("gdiplus\GdipFillEllipse", "ptr", g, "ptr", brush, "float", x, "float", y, "float", d, "float", d)
+    DllCall("gdiplus\GdipDeleteBrush", "ptr", brush)
 }
 
 ; Window background: the rounded card groups (with row dividers) on the window color

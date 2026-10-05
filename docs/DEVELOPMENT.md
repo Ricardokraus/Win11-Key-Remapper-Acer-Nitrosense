@@ -152,11 +152,15 @@ Rules:
   (`SPI_GETCLIENTAREAANIMATION`).
 - **No flicker, no cut**: changing many controls at once (switching sections, a
   DPI change, the *Sends* row appearing) happens inside `Freeze()`, which stops
-  painting with `WM_SETREDRAW`. Then `Flip()` paints the whole window with its
-  controls off-screen (`PrintWindow` → `WM_PRINT`) and copies it to the screen in
-  one `BitBlt`, and validates everything so nothing repaints piece by piece.
-  Repainting control by control on screen (`RedrawWindow`) let DWM show
-  half-painted frames at 180 Hz: a visible "cut". `WS_EX_COMPOSITED` was not used:
+  painting with `WM_SETREDRAW`. Then `Flip()` composes the whole client area
+  off-screen (`ComposeWindow`: the background bitmap, then `WM_PRINT` to each
+  visible control at its place), turns painting back on, resizes the window if
+  the DPI changed, copies the image in one `BitBlt` and validates everything so
+  nothing repaints piece by piece. Repainting control by control on screen
+  (`RedrawWindow`) let DWM show half-painted frames at 180 Hz, and resizing before
+  painting (moving to the 150 % monitor) showed the new area black: both were
+  visible "cuts". `PrintWindow` can't be used for the composition: it clips to the
+  window's current size, which is the old one while the window grows. `WS_EX_COMPOSITED` was not used:
   it fights DWM and makes child windows sluggish ([Raymond
   Chen](https://devblogs.microsoft.com/oldnewthing/20171018-00/?p=97245)).
   Only while the window is visible: `WM_SETREDRAW` on a hidden window would show
@@ -228,13 +232,15 @@ Rules:
   `ToastWhen=Never` turns them all off except warnings (`kind = "warn"`), which
   need the user (e.g. *App not found* after the NitroSense shortcut).
 - **Notices inside the settings window** (`Notice`): whatever the user just did
-  there: "*Theme: Dark* — Saved and applied", the answer of *Check now*, errors.
-  Same card as a notification, but solid (no screen capture), at the bottom center
-  of the window, rising a little while fading in; click-through
-  (`WS_EX_TRANSPARENT`), so it can't be clicked away; owned by the window, so it
-  stays above it and closes with it; `WM_MOVE` → `GT_FollowHost` keeps it in place
-  when the window moves. `GlassToast(…, host, hostTheme)` does all that. With the
-  window closed, a notice falls back to a system notification.
+  there: "*Theme: Dark* · Saved", the answer of *Check now*, errors. A separate
+  component on purpose, not a mode of `GlassToast`: its own small window, state
+  (`NT`) and timer, so a notice and a notification never replace each other and
+  the notifications setting can't leak into it. A small solid pill (40 px high)
+  in the window's colors, drawn once, at the bottom center of the window, rising
+  a little while fading in; click-through (`WS_EX_TRANSPARENT`), so it can't be
+  clicked away; owned by the window, so it stays above it and closes with it;
+  `WM_MOVE` → `NoticeFollow` keeps it in place. With the window closed, a notice
+  becomes a system notification (and follows `ToastWhen`).
 - Message boxes (Reset, install an update) are created in a PMv2 thread context
   (`Dialog`), or Windows stretches them on a monitor with another scale (blurry).
 - *Restart* from the settings window starts the new copy with

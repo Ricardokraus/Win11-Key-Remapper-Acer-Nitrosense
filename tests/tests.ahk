@@ -8,8 +8,8 @@ Critical                                ; no timer may run in the middle of a te
 ; A runtime error must fail the run, not open a dialog and wait
 OnError((e, *) => (FileAppend("ERROR: " e.Message " (line " e.Line ")`n" e.Stack "`n", "*", "UTF-8"), ExitApp(2)))
 TOASTS := [], SENT := [], RAN := []
-TestToast(title, sub, kind := "ok", holdMs := 5000, host := 0, theme := "") {
-    TOASTS.Push((host ? "[in] " : "") title " | " sub)     ; [in] = a notice inside the settings window
+TestToast(title, sub, kind := "ok", holdMs := 5000) {
+    TOASTS.Push(title " | " sub)        ; system notifications; NT.last = the last notice in the window
 }
 TestSend(keys) => SENT.Push(keys)
 TestRun(target, dir := "") => RAN.Push(target)
@@ -360,7 +360,7 @@ UI.mode.Value := 2
 OnModeChange(UI.mode)
 ctx := PMv2(), UI.launchBtn.GetPos(, &yHidden), PMv2(ctx)
 Check(CFG.mode = "Disable" && !UI.targetBtn.Visible && !UI.targetKeys.Visible, "gui: Sends row hidden when the key does nothing")
-Check(InStr(LastToast(), "[in] Action: Do nothing"), "gui: a notice inside the window says what was saved")
+Check(InStr(NT.last, "Action: Do nothing") && !InStr(LastToast(), "Action"), "gui: a notice inside the window says what was saved")
 DRAFT.targetVK := 0
 UI.mode.Value := 1
 OnModeChange(UI.mode)
@@ -400,7 +400,7 @@ Check(PAUSED && UI.status.Value = "Paused", "gui: remapping off = paused")
 FlipSwitch("remapping")
 Check(!PAUSED, "gui: remapping back on")
 FlipSwitch("trayIcon")
-Check(A_IconHidden && InStr(LastToast(), "[in] The tray icon is hidden"), "gui: tray icon hidden, with a hint")
+Check(A_IconHidden && InStr(NT.last, "The tray icon is hidden"), "gui: tray icon hidden, with a hint")
 FlipSwitch("trayIcon")
 Check(!A_IconHidden, "gui: tray icon back")
 UI.toastWhen.Value := 2
@@ -417,7 +417,7 @@ SystemToast("App not found", "x", "warn")
 Check(InStr(LastToast(), "App not found"), "never: warnings still show")
 UPD.latest := "v9.9.9"
 UpdateDone("latest", true)
-Check(InStr(LastToast(), "[in] You're up to date"), "never: Check now answers inside the window")
+Check(InStr(NT.last, "You're up to date") && !InStr(LastToast(), "up to date"), "never: Check now answers inside the window")
 UPD.state := "", UPD.latest := ""
 UpdateUpdatesRow()
 DRAFT.toastWhen := "Always", CommitDraft()
@@ -510,7 +510,7 @@ TogglePause()
 Check(!PAUSED, "pause off")
 UPD.latest := "v9.9.9"
 UpdateDone("available", false)
-Check(InStr(LastToast(), "Update available: v9.9.9") && !InStr(LastToast(), "[in]"), "update offered as a system notification")
+Check(InStr(LastToast(), "Update available: v9.9.9"), "update offered as a system notification")
 n := TOASTS.Length
 UpdateDone("available", false)
 Eq(TOASTS.Length, n, "same update not announced twice")

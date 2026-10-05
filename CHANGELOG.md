@@ -39,8 +39,9 @@ First public release.
 - Sharp on every monitor: the settings window and the tray menu follow each
   monitor's scale (Per-Monitor DPI v2), also when moved between monitors. Moving
   the window to a monitor with another scale relays out only what's visible, in
-  one batch, and every bigger change (switching sections, the new scale) is
-  painted off-screen and shown in one copy: no flicker, no half-drawn frames.
+  one batch; every bigger change (switching sections, the new scale) is composed
+  off-screen first and shown in one copy: no flicker, no half-drawn or black
+  frames.
 - Message boxes (Reset, install an update) and *Browse…* are sharp on every
   monitor too.
 - Notifications: when (always, only when the app starts, or never), where (top or
@@ -48,9 +49,10 @@ First public release.
   frosted glass or a solid card in the settings window's colors (*Transparency
   effects*, `ToastTransparency`: lighter for older or low-power PCs), with a
   preview. *Never* means no notifications on the desktop at all, except warnings.
-- What you do in the settings window is confirmed inside it: a solid notice
-  rises from the bottom ("Theme: Dark — Saved and applied", the result of *Check
-  now*…), can't be clicked away and follows the window.
+- What you do in the settings window is confirmed inside it: a small solid
+  notice rises from the bottom ("Theme: Dark · Saved", the result of *Check
+  now*…), can't be clicked away and follows the window. It's independent from
+  the desktop notifications: one never replaces the other.
 - *Restart* from the settings window reopens it in the same section and place.
 - Tray menu: Settings, Pause remapping, Restart, Exit.
 - Option to hide the tray icon. Opening the app again shows the settings of the
