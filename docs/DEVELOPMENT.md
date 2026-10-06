@@ -13,7 +13,7 @@ tests/tests.ahk              logic tests (fake key events fed to the hook proced
 tools/make-icon.ps1          regenerates assets/icon.ico
 tools/build.ps1              builds dist/Win11KeyRemapper.exe locally (not published, see "The exe")
 assets/                      icon.ico, banner.svg, social-preview.png, screenshot-*.png
-settings.example.ini         documented defaults (a test checks it matches the code)
+settings.example.ini         every setting with its default (a test checks it's what the app writes)
 .github/workflows/build.yml  syntax check, tests, zip of the script, release on tag v*
 .github/ISSUE_TEMPLATE/      bug, "works on my laptop", feature, question
 .github/dependabot.yml       monthly PRs to update the GitHub Actions
@@ -42,6 +42,15 @@ powershell -ExecutionPolicy Bypass -File tools\build.ps1
 ```
 
 When you run from source, `settings.ini` is created in `src\` (gitignored).
+
+`settings.ini` explains itself: `WriteSettings()` writes the whole file from
+`SETTINGS_TEMPLATE` (a comment above every key, `{Key}` placeholders for the
+values) into a `.tmp` file and moves it over the old one, in UTF-16 with BOM so
+`IniRead` handles non-ASCII paths. At startup, a file without the comments (from
+an older version) is written again in the new format. `settings.example.ini` is
+the same text with the defaults plus a short note at the top; a test fails if
+they drift apart, so when you add or change a setting, update the template,
+`DefaultSettings()`, `LoadSettings()` and the example file together.
 
 The tests patch the app before running it: startup (`Main()`) is removed, the
 settings window is created hidden and `SendInput`, `Run`, `Download`,

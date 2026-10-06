@@ -118,19 +118,100 @@ MOD_ALIAS  := Map("ctrl", "LCtrl", "control", "LCtrl", "alt", "LAlt", "shift", "
 KNOWN_KEYS := Map("FF:175", "NitroSense key", "FF:159", "Win Lock on", "FF:162", "Win Lock off")
 KEY_NAMES  := Map("Numlock", "Num Lock", "AppsKey", "Menu key")
 
-INI_HEADER := "
+; settings.ini explains itself: it's written whole from this template, with a
+; comment above every key. settings.example.ini is this text with the defaults
+; (a test checks it). {Name} = the value of that key.
+SETTINGS_TEMPLATE := "
 (
 ; Windows 11 Key Remapper - settings
-; Change them from the tray icon > Settings..., or edit this file and restart the app.
-; VK = virtual-key code, SC = scan code (hex). The settings window shows them next to each key.
-; Mode: Key (press TargetVK/TargetSC instead) | Disable | None
-; Modifiers (comma-separated): LCtrl RCtrl LAlt RAlt LShift RShift LWin RWin
-; LaunchPath: auto, a path to an .exe or .lnk, or shell:AppsFolder\<AppID>
-; ToastWhen: Always (startup, unlock, screen on) | Startup | Never (only warnings)
-; ToastPosition: TopCenter | TopRight | TopLeft | BottomCenter | BottomRight | BottomLeft
-; ToastAnimation: Slide | Fade | None
-; ToastTransparency: 1 = frosted glass, 0 = solid (less work for older PCs)
-; Theme (settings window and tray menu): System | Light | Dark
+;
+; The easy way: change everything in the settings window (tray icon > Settings...).
+; You can also edit this file: save it, then restart the app (tray icon > Restart).
+; The app writes this file again whenever you change something in the settings
+; window, so comments of your own are lost. A missing or wrong value falls back
+; to its default.
+;
+; VK = virtual-key code, SC = scan code, both in hex (0x...). The settings window
+; shows them next to each key (Keys > Change...).
+
+[Remap]
+
+; The key to remap. Default: the Acer NitroSense key (VK 0xFF, SC 0x175).
+SourceVK={SourceVK}
+SourceSC={SourceSC}
+
+; Exact key match. 1 = the scan code must match too (default). Keep it on for
+; the NitroSense key: Win Lock on/off (Fn+Win) send the same VK 0xFF with
+; SC 0x159 / 0x162. 0 = match the VK only.
+MatchSC={MatchSC}
+
+; What the key does:
+;   Key     = press another key or shortcut, set below (default)
+;   Disable = nothing at all
+;   None    = keep its normal behavior (the app leaves it alone)
+Mode={Mode}
+
+; Mode=Key: the key to press instead. Default: Num Lock (VK 0x90, SC 0x145).
+; TargetMods = modifiers held with it, comma-separated (empty = none):
+;   LCtrl RCtrl LAlt RAlt LShift RShift LWin RWin
+; Example, Ctrl+Shift+Esc: TargetMods=LCtrl,LShift  TargetVK=0x1B  TargetSC=0x1
+TargetMods={TargetMods}
+TargetVK={TargetVK}
+TargetSC={TargetSC}
+
+[Launcher]
+
+; A shortcut that opens an app. 1 = on (default), 0 = off.
+; Default: Right Ctrl + NitroSense key opens NitroSense.
+LaunchEnabled={LaunchEnabled}
+
+; Modifiers to hold, exactly these (same names as TargetMods; empty = none).
+LaunchMods={LaunchMods}
+
+; The shortcut's key.
+LaunchVK={LaunchVK}
+LaunchSC={LaunchSC}
+
+; 1 = Ctrl, Alt, Shift and Win count on either side of the keyboard.
+; 0 = only the side written in LaunchMods (default).
+LaunchAnySide={LaunchAnySide}
+
+; The app to open:
+;   auto = find NitroSense by itself (default)
+;   a path to an .exe or .lnk, e.g. C:\Program Files\Some App\app.exe
+;   shell:AppsFolder\<AppID> for a Microsoft Store app
+LaunchPath={LaunchPath}
+
+[General]
+
+; When to show the "app is running" notification:
+;   Always  = at startup, after unlocking and when the screen turns on (default)
+;   Startup = only when the app starts
+;   Never   = no notifications on the desktop at all, except warnings
+ToastWhen={ToastWhen}
+
+; Where it appears: TopCenter (default), TopRight, TopLeft, BottomCenter,
+; BottomRight or BottomLeft.
+ToastPosition={ToastPosition}
+
+; How it appears: Slide (default), Fade or None.
+ToastAnimation={ToastAnimation}
+
+; 1 = frosted glass that blurs what's behind it (default).
+; 0 = a solid card in the settings window's colors, lighter for older PCs.
+ToastTransparency={ToastTransparency}
+
+; 1 = show the tray icon (default). 0 = hide it: open the app again to reach
+; the settings.
+TrayIcon={TrayIcon}
+
+; 1 = look for a new version on GitHub once a day (default). 0 = only when you
+; click Check now (Settings > Updates).
+CheckUpdates={CheckUpdates}
+
+; Colors of the settings window and the tray menu: System (follows Windows,
+; default), Light or Dark.
+Theme={Theme}
 
 )"
 
@@ -184,7 +265,7 @@ Main() {
     SETTINGS_PATH := SettingsPath()
     firstRun := !FileExist(SETTINGS_PATH)
     CFG := firstRun ? DefaultSettings() : LoadSettings(SETTINGS_PATH)
-    if firstRun {
+    if (firstRun || !SettingsExplained(SETTINGS_PATH)) {   ; new, or from a version without the comments
         try WriteSettings(SETTINGS_PATH, CFG)
     }
     ApplySettings()
@@ -382,29 +463,33 @@ LoadSettings(path) {
     return c
 }
 
+; The whole file, written to a temporary file first so a failure never leaves
+; it half-written. UTF-16 (with BOM): IniRead reads non-ASCII paths right.
 WriteSettings(path, c) {
-    if !FileExist(path)
-        FileAppend(INI_HEADER, path, "UTF-16 `n")   ; same encoding IniWrite uses, CRLF
-    IniWrite(Hex(c.sourceVK), path, "Remap", "SourceVK")
-    IniWrite(Hex(c.sourceSC), path, "Remap", "SourceSC")
-    IniWrite(c.matchSC ? 1 : 0, path, "Remap", "MatchSC")
-    IniWrite(c.mode, path, "Remap", "Mode")
-    IniWrite(JoinMods(c.targetMods), path, "Remap", "TargetMods")
-    IniWrite(Hex(c.targetVK), path, "Remap", "TargetVK")
-    IniWrite(Hex(c.targetSC), path, "Remap", "TargetSC")
-    IniWrite(c.launchEnabled ? 1 : 0, path, "Launcher", "LaunchEnabled")
-    IniWrite(JoinMods(c.launchMods), path, "Launcher", "LaunchMods")
-    IniWrite(Hex(c.launchVK), path, "Launcher", "LaunchVK")
-    IniWrite(Hex(c.launchSC), path, "Launcher", "LaunchSC")
-    IniWrite(c.launchAnySide ? 1 : 0, path, "Launcher", "LaunchAnySide")
-    IniWrite(c.launchPath, path, "Launcher", "LaunchPath")
-    IniWrite(c.toastWhen, path, "General", "ToastWhen")
-    IniWrite(c.toastPosition, path, "General", "ToastPosition")
-    IniWrite(c.toastAnim, path, "General", "ToastAnimation")
-    IniWrite(c.toastGlass ? 1 : 0, path, "General", "ToastTransparency")
-    IniWrite(c.trayIcon ? 1 : 0, path, "General", "TrayIcon")
-    IniWrite(c.checkUpdates ? 1 : 0, path, "General", "CheckUpdates")
-    IniWrite(c.theme, path, "General", "Theme")
+    tmp := path ".tmp"
+    if FileExist(tmp)
+        FileDelete(tmp)
+    FileAppend(SettingsText(c), tmp, "UTF-16")
+    FileMove(tmp, path, 1)
+}
+
+SettingsExplained(path) {
+    try return InStr(FileRead(path), "`n; What the key does:") > 0
+    return false
+}
+
+SettingsText(c) {
+    values := Map("SourceVK", Hex(c.sourceVK), "SourceSC", Hex(c.sourceSC), "MatchSC", c.matchSC ? 1 : 0
+        , "Mode", c.mode, "TargetMods", JoinMods(c.targetMods), "TargetVK", Hex(c.targetVK), "TargetSC", Hex(c.targetSC)
+        , "LaunchEnabled", c.launchEnabled ? 1 : 0, "LaunchMods", JoinMods(c.launchMods)
+        , "LaunchVK", Hex(c.launchVK), "LaunchSC", Hex(c.launchSC), "LaunchAnySide", c.launchAnySide ? 1 : 0
+        , "LaunchPath", c.launchPath, "ToastWhen", c.toastWhen, "ToastPosition", c.toastPosition
+        , "ToastAnimation", c.toastAnim, "ToastTransparency", c.toastGlass ? 1 : 0
+        , "TrayIcon", c.trayIcon ? 1 : 0, "CheckUpdates", c.checkUpdates ? 1 : 0, "Theme", c.theme)
+    text := SETTINGS_TEMPLATE
+    for key, value in values
+        text := StrReplace(text, "{" key "}", value)
+    return StrReplace(text, "`n", "`r`n")
 }
 
 ; Missing key -> default. An empty value stays empty (e.g. "no modifiers").

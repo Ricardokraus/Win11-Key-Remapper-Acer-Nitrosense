@@ -4,6 +4,19 @@ All notable changes to this project are documented here. The format is based
 on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- `settings.ini` explains itself: every option has a short comment above it
+  with its possible values and default. A file from an older version is
+  rewritten in the new format the next time the app starts (your values stay).
+  `settings.example.ini` is the same file with the defaults.
+- README reorganized: a short *Get started*, collapsible sections (features,
+  updating, uninstalling, FAQ, help), more space between points, and *Feedback*
+  and *Contributing* together. The settings table is gone: the file itself
+  explains each option now.
+
 ## [0.5.1] - 2026-10-05
 
 ### Changed

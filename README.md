@@ -5,11 +5,9 @@
 <p align="center">
   <a href="https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense?color=30D158&label=release"></a>
   <a href="https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/total?color=30D158"></a>
-  <a href="https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense?color=30D158"></a>
-  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense?color=blue"></a>
   <img alt="Windows 10 | 11" src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D4">
   <a href="https://www.autohotkey.com/"><img alt="AutoHotkey v2" src="https://img.shields.io/badge/AutoHotkey-v2-334455?logo=autohotkey&logoColor=white"></a>
-  <a href="https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/actions/workflows/build.yml"><img alt="Build" src="https://img.shields.io/github/actions/workflow/status/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/build.yml?branch=main&label=build"></a>
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense?color=blue"></a>
 </p>
 
 <h3 align="center">
@@ -17,10 +15,21 @@
   Turn it into Num Lock, disable it, or remap it — a small, free AutoHotkey app.
 </h3>
 
+<p align="center">
+  <a href="#installation"><b>Get started</b></a> ·
+  <a href="#features"><b>Features</b></a> ·
+  <a href="#faq"><b>FAQ</b></a> ·
+  <a href="#help-and-contributing"><b>Help and contributing</b></a>
+</p>
+
 On Acer Nitro laptops the **NitroSense key** sits right next to Backspace and
 Num Lock. One slip and the NitroSense app pops up. **Windows 11 Key Remapper**
 is a tiny tray app that gives that key a better job — or any other key you pick.
 
+<!-- Demo GIF: record with ScreenToGif, save as assets/demo.gif, then use it in
+     place of the screenshot below.
+<p align="center"><img src="assets/demo.gif" alt="The app's notifications" width="760"></p>
+-->
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="assets/screenshot-dark.png">
@@ -28,34 +37,10 @@ is a tiny tray app that gives that key a better job — or any other key you pic
   </picture>
 </p>
 
-## Features
+---
 
-- **Remap the NitroSense key** (or any key) to **another key or shortcut** —
-  **Num Lock** by default — or make it do **nothing**.
-- **Holding it toggles Num Lock (or Caps / Scroll Lock) once**, not over and over;
-  other keys repeat like the real key.
-- **Built-in key detector**: click *Change…*, press a key or a combination, done.
-- **Optional shortcut to open NitroSense** (default: <kbd>Right Ctrl</kbd> +
-  NitroSense key). It finds the app by itself, including the Microsoft Store
-  version, or opens any app you choose.
-- **Settings window in the Windows 11 style**: sections in a sidebar (General,
-  Keys, Notifications, Updates, Advanced, About), **light and dark mode** (follows
-  Windows, or pick one), changes applied instantly, small animations, and sharp
-  and smooth on every monitor, whatever its scale.
-- **Notifications your way**: always (at startup, after unlocking and when the
-  screen turns on), only when the app starts, or never; choose where they appear
-  (six positions), how (slide, fade or none) and whether they're frosted glass or
-  solid, with a preview button. What you change in the settings is confirmed
-  inside the window itself, not on your desktop.
-- **A tiny tray menu** (settings, pause, restart, exit) — or **hide the tray
-  icon** completely (open the app again to reach its settings).
-- **Tells you about new versions**: checks GitHub once a day (you can turn this
-  off) and takes you to the download.
-- **Portable and light**: one script run by [AutoHotkey v2](https://www.autohotkey.com/),
-  no admin rights, no driver, no service, no CPU use while idle.
-- **Free and open source** (MIT).
-
-## Installation
+<a name="installation"></a>
+## 🚀 Get started
 
 The app is an [AutoHotkey v2](https://www.autohotkey.com/) script. AutoHotkey is
 free, open source and signed, so it also runs with Windows 11's *Smart App
@@ -63,99 +48,99 @@ Control* on. (There's no exe for now: [why?](#why-no-exe))
 
 1. Install [AutoHotkey v2](https://www.autohotkey.com/) (*Download v2.0* → run
    the installer, default options).
+
 2. Download `Win11KeyRemapper-vX.Y.Z.zip` from the
    [latest release](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/releases/latest)
    and extract it to a folder you'll keep, for example `Documents\Win11KeyRemapper`
    (not *Downloads*: *Start with Windows* points to wherever the app is).
+
 3. Double-click **`src\Win11KeyRemapper.ahk`**.
+
 4. The settings window opens on *Keys*. Pick what the NitroSense key should do —
    changes apply at once. *Start with Windows* is already on. Close the window:
-   the app lives in the tray. Double-click its icon, or open the app again, to come
-   back.
+   the app lives in the tray. Double-click its icon, or open the app again, to
+   come back.
 
-Your settings are saved in `src\settings.ini`.
+Everything is changed from the settings window. If you'd rather edit a text file,
+`src\settings.ini` explains every option inside it (open it from *Settings* →
+*Advanced* → *Open folder*), and [`settings.example.ini`](settings.example.ini)
+shows them all with their defaults.
 
-### Updating
+<a name="features"></a>
+## ✨ Features
+
+<details>
+<summary><b>See all features</b></summary>
+<br>
+
+- **Remap the NitroSense key** (or any key) to another key or shortcut — **Num
+  Lock** by default — or make it do nothing.
+
+- **Holding it toggles Num Lock once** (or Caps / Scroll Lock), not over and
+  over; other keys repeat like the real key.
+
+- **Built-in key detector**: click *Change…*, press a key or a combination, done.
+
+- **A shortcut to open NitroSense** (default: <kbd>Right Ctrl</kbd> + NitroSense
+  key). It finds the app by itself, Microsoft Store version included, or opens any
+  app you choose.
+
+- **Windows 11 style settings**: a sidebar with sections, **light and dark
+  mode**, changes applied at once, small animations, sharp on every monitor.
+
+- **Notifications your way**: always (at startup, after unlocking, when the
+  screen turns on), only at startup, or never; six positions, three animations,
+  frosted glass or solid.
+
+- **A tiny tray menu** (settings, pause, restart, exit), or **no tray icon** at
+  all.
+
+- **Tells you about new versions**: checks GitHub once a day (you can turn it
+  off).
+
+- **Light**: no admin rights, no driver, no service, no CPU use while idle.
+
+- **Free and open source** (MIT).
+
+</details>
+
+<a name="updating"></a>
+## 🔄 Updating and uninstalling
+
+<details>
+<summary><b>How to update</b></summary>
+<br>
 
 When there's a new version, the app tells you (*Settings* → *Updates*), and
 *Download* opens the release page. Then:
 
 1. Click *Exit* in the app (settings → *General* → *App*, or tray icon → *Exit*).
+
 2. Download the new zip and extract it **over the same folder**, replacing the
    files. Your `settings.ini` isn't in the zip, so it stays.
+
 3. Double-click `src\Win11KeyRemapper.ahk` again.
 
-You can also get the code with the green **Code** button → *Download ZIP*, or
-`git clone`: it works the same way.
+</details>
 
-<!-- Demo GIF: record with ScreenToGif, save as assets/demo.gif and uncomment.
-<p align="center"><img src="assets/demo.gif" alt="Detecting the NitroSense key and remapping it to Num Lock" width="640"></p>
--->
+<details>
+<summary><b>How to uninstall</b></summary>
+<br>
 
-## Feedback, bugs and ideas
+1. In the settings (*General*), turn off *Start with Windows*.
 
-Everything goes through GitHub **Issues**. You need a free GitHub account.
+2. Click *Exit* under *App* (or tray icon → *Exit*).
 
-1. Open the [Issues tab](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/issues)
-   and search first: maybe someone already reported it. If so, add a 👍 or a comment
-   with your details.
-2. If not, click **New issue** and pick a form:
-   - 🐞 **Bug report** — something doesn't work as expected.
-   - 💡 **Feature request** — an idea or an improvement.
-   - 💻 **Works on my laptop** — tell us whether it works on your model (even if it doesn't!).
-   - ❓ **Question** — anything else.
-3. Fill in the form and click **Create**. GitHub emails you when someone answers.
+3. Delete the app's folder, and `%APPDATA%\Win11KeyRemapper` if it exists.
+   Nothing else is installed.
 
-The same links, and one to the [FAQ](#faq), are in the app: settings window →
-*About* → *Help and feedback*.
+If you don't use AutoHotkey for anything else, you can uninstall it from
+Windows' *Installed apps*.
 
-Found a security problem? Please report it privately instead — see
-[SECURITY.md](SECURITY.md). And if the app helps you, a ⭐ helps others find it.
+</details>
 
-## Settings
-
-Everything can be changed from the settings window. Behind it is a plain
-`settings.ini` in the `src` folder, next to the script (or in
-`%APPDATA%\Win11KeyRemapper` if that folder isn't writable). Missing keys fall
-back to the defaults. See
-[`settings.example.ini`](settings.example.ini).
-
-| Section | Key | Default | Meaning |
-|---|---|---|---|
-| `[Remap]` | `SourceVK` / `SourceSC` | `0xFF` / `0x175` | Key to remap (NitroSense key). Hex virtual-key and scan code, as shown next to the key in the settings window. |
-| | `MatchSC` | `1` | *Exact key match*: also compare the scan code. Keep it on for vendor keys that share VK `FF`. |
-| | `Mode` | `Key` | `Key` (press another key or shortcut), `Disable`, or `None` (leave the key alone). The older `NumLock`, `CapsLock` and `ScrollLock` still work: they mean `Key` with that key. |
-| | `TargetMods` | *(empty)* | `Mode=Key`: modifiers held with the target, e.g. `LCtrl,LShift`. |
-| | `TargetVK` / `TargetSC` | `0x90` / `0x145` | `Mode=Key`: the key to press instead (default: Num Lock). |
-| `[Launcher]` | `LaunchEnabled` | `1` | Shortcut that opens an app. |
-| | `LaunchMods` | `RCtrl` | Exact modifiers to hold: `LCtrl RCtrl LAlt RAlt LShift RShift LWin RWin`, comma-separated. |
-| | `LaunchVK` / `LaunchSC` | `0xFF` / `0x175` | The shortcut's key. |
-| | `LaunchAnySide` | `0` | `1` = left or right Ctrl/Alt/Shift/Win both count. |
-| | `LaunchPath` | `auto` | `auto` (find NitroSense), a path to an `.exe` / `.lnk`, or `shell:AppsFolder\<AppID>`. |
-| `[General]` | `ToastWhen` | `Always` | When to show the "app is running" notification: `Always` (at startup, after unlocking and when the display turns on), `Startup` (only when the app starts) or `Never` (no notifications on the desktop at all, except warnings that need you, like *App not found*). Update notices follow it too. |
-| | `ToastPosition` | `TopCenter` | `TopCenter`, `TopRight`, `TopLeft`, `BottomCenter`, `BottomRight` or `BottomLeft`. |
-| | `ToastAnimation` | `Slide` | `Slide`, `Fade` or `None`. |
-| | `ToastTransparency` | `1` | `1` = frosted glass (blurs what's behind it); `0` = a solid card in the settings window's colors, lighter for older or low-power PCs. |
-| | `TrayIcon` | `1` | `0` hides the tray icon. Open the app again to reach the settings. |
-| | `CheckUpdates` | `1` | Look for a new version on GitHub once a day. |
-| | `Theme` | `System` | Settings window and tray menu: `System`, `Light` or `Dark`. |
-
-If you edit the file by hand, restart the app (tray → *Restart*, or settings →
-*General* → *Restart*).
-
-## Tested models
-
-| Laptop | Windows | Codes shown in the settings window | Status |
-|---|---|---|---|
-| Acer Nitro V 16S AI (ANV16S-41) | 11 | NitroSense key `VK FF SC 175` · Win Lock on `FF 159` / off `FF 162` | ✅ Works |
-
-Tried it on another laptop? Please
-[tell us how it went](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/issues/new?template=works_on_my_laptop.yml),
-even if it didn't work — that's how this list grows.
-
-## FAQ
-
-Click a question to see the answer.
+<a name="faq"></a>
+## ❓ FAQ
 
 <a name="why-no-exe"></a>
 <details>
@@ -240,17 +225,6 @@ this app's control.
 </details>
 
 <details>
-<summary><b>Q: How do I uninstall it?</b></summary>
-<br>
-
-**A:** In the settings (*General*), turn off *Start with Windows*, then click *Exit*
-under *App* (or tray icon → *Exit*). Delete the app's folder, and
-`%APPDATA%\Win11KeyRemapper` if it exists. Nothing else is installed. If you
-don't use AutoHotkey for anything else, you can uninstall it from Windows'
-*Installed apps*.
-</details>
-
-<details>
 <summary><b>Q: The notification stutters on my old or low-power PC</b></summary>
 <br>
 
@@ -262,13 +236,15 @@ capture at all. Or set *Show notifications* to *Only when the app starts* or
 </details>
 
 <details>
-<summary><b>Q: Where are my settings?</b></summary>
+<summary><b>Q: Where are my settings? Can I edit them by hand?</b></summary>
 <br>
 
-**A:** In `src\settings.ini`, next to `Win11KeyRemapper.ahk`, or in
-`%APPDATA%\Win11KeyRemapper\settings.ini` when that folder isn't writable
-(e.g. under Program Files). Settings → *Advanced* → *Open folder* takes you
-there.
+**A:** In `src\settings.ini`, next to `Win11KeyRemapper.ahk` (or in
+`%APPDATA%\Win11KeyRemapper\settings.ini` when that folder isn't writable).
+Settings → *Advanced* → *Open folder* takes you there. Every option is explained
+inside the file. After editing it, restart the app (tray icon → *Restart*). The app
+writes the file again when you change something in the settings window, so your
+own comments in it are lost.
 </details>
 
 <details>
@@ -281,15 +257,20 @@ there.
   AutoHotkey hotkeys can't target reliably. The app installs its own low-level
   keyboard hook (`WH_KEYBOARD_LL`) and matches each key by virtual-key code
   **and** scan code (with the extended bit).
+
 - The matched key is swallowed, so neither Windows nor the vendor software sees
   it — otherwise both would react and Num Lock would toggle twice.
+
 - Modifiers for the launcher shortcut are tracked by the hook itself.
+
 - The hook never does real work: actions go to a queue that runs right after,
   because Windows silently removes hooks that respond too slowly. The hook is
   also reinstalled after unlocking and after sleep.
+
 - Key-downs that arrive while the key is still held (auto-repeat) are passed on
   as repeats of the target, except for Num, Caps and Scroll Lock, so holding the
   key toggles them once.
+
 - The settings window is standard Win32 with custom-drawn cards, buttons,
   keycaps, switches and sidebar, aware of each monitor's scale; the notification
   is drawn once with GDI+ and then only moved and faded by the window manager, so
@@ -298,35 +279,68 @@ there.
 More details in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 </details>
 
-## Checks and tests
+## 💻 Tested models
 
-GitHub Actions checks the syntax and runs the tests on every push; pushing a tag
-like `v0.5.1` publishes a release with the zip and its SHA-256 sums. To run the
-same checks yourself, with [AutoHotkey v2](https://www.autohotkey.com/):
+| Laptop | Windows | Codes shown in the settings window | Status |
+|---|---|---|---|
+| Acer Nitro V 16S AI (ANV16S-41) | 11 | NitroSense key `VK FF SC 175` · Win Lock on `FF 159` / off `FF 162` | ✅ Works |
 
-```powershell
-# Syntax check
-AutoHotkey64.exe /ErrorStdOut /Validate src\Win11KeyRemapper.ahk
+Tried it on another laptop? Please
+[tell us how it went](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/issues/new?template=works_on_my_laptop.yml),
+even if it didn't work — that's how this list grows.
 
-# Logic tests (no keyboard hook is installed)
-powershell -ExecutionPolicy Bypass -File tests\run-tests.ps1
-```
+---
 
-## Contributing
+<a name="help-and-contributing"></a>
+## 💬 Help and contributing
 
-Issues and pull requests are welcome! Read [CONTRIBUTING.md](CONTRIBUTING.md)
-first — it explains how to test changes and lists the traps this project already
-fell into ([docs/DEVELOPMENT.md](docs/DEVELOPMENT.md)).
+Bugs, ideas, questions and code all go through GitHub. The same links are in the
+app: settings window → *About*.
 
-## Star History
+<details>
+<summary><b>Report a bug, suggest an idea or ask a question</b></summary>
+<br>
+
+You need a free GitHub account.
+
+1. Open the [Issues tab](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/issues)
+   and search first: maybe someone already reported it. If so, add a 👍 or a
+   comment with your details.
+
+2. If not, click **New issue** and pick a form:
+
+   - 🐞 **Bug report** — something doesn't work as expected.
+   - 💡 **Feature request** — an idea or an improvement.
+   - 💻 **Works on my laptop** — tell us whether it works on your model (even if it doesn't!).
+   - ❓ **Question** — anything else.
+
+3. Fill in the form and click **Create**. GitHub emails you when someone answers.
+
+Found a security problem? Please report it privately instead — see
+[SECURITY.md](SECURITY.md).
+
+</details>
+
+<details>
+<summary><b>Contribute code or docs</b></summary>
+<br>
+
+Pull requests are welcome! [CONTRIBUTING.md](CONTRIBUTING.md) explains how to
+test a change (syntax check and logic tests, the same ones GitHub Actions runs),
+and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) how the app works and the traps
+this project already fell into.
+
+</details>
+
+If the app helps you, a ⭐ helps others find it.
 
 <a href="https://star-history.com/#Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense&Date">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense&type=Date&theme=dark">
-    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense&type=Date">
+    <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense&type=Date" width="600">
   </picture>
 </a>
 
-## License
+## 📄 License
 
 [MIT](LICENSE) © 2026 Ricardo

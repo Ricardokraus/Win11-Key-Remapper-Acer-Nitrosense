@@ -70,6 +70,13 @@ Eq(enc, "UTF-16", "ini encoding")
 txt := FileRead(SETTINGS_PATH, "UTF-16")
 Check(InStr(txt, "; Windows 11 Key Remapper - settings`r`n"), "header with CRLF")
 Check(InStr(txt, "SourceVK=0xFF") && InStr(txt, "TargetMods=`r`n"), "hex + empty values written")
+Check(!InStr(txt, "{") && !InStr(txt, "`n`n"), "every placeholder filled, CRLF only")
+Check(InStr(txt, "; What the key does:`r`n;   Key     = press another key") && InStr(txt, "`r`n; Where it appears:"), "settings.ini explains each key")
+Check(SettingsExplained(SETTINGS_PATH), "explained file recognized")
+Check(!FileExist(SETTINGS_PATH ".tmp"), "no temporary file left")
+pOld := tmp "\old-format.ini"
+FileAppend("; Windows 11 Key Remapper - settings`r`n[Remap]`r`nSourceVK=0xFF`r`n", pOld, "UTF-16")
+Check(!SettingsExplained(pOld) && !SettingsExplained(tmp "\missing.ini"), "old or missing file needs rewriting")
 
 IniWrite("", SETTINGS_PATH, "Launcher", "LaunchMods")
 Eq(LoadSettings(SETTINGS_PATH).launchMods.Length, 0, "empty LaunchMods stays empty")
@@ -106,6 +113,10 @@ for key in ["sourceVK", "sourceSC", "matchSC", "mode", "targetVK", "targetSC", "
           , "toastAnim", "toastGlass", "trayIcon", "checkUpdates", "theme"]
     Eq(c.%key% "", d.%key% "", "settings.example.ini matches defaults: " key)
 Eq(JoinMods(c.targetMods) "|" JoinMods(c.launchMods), JoinMods(d.targetMods) "|" JoinMods(d.launchMods), "settings.example.ini mods")
+example := FileRead(A_ScriptDir "\..\settings.example.ini", "UTF-8")
+Check(InStr(example, "`r`n; Windows 11 Key Remapper - settings")
+    && SubStr(example, InStr(example, "; Windows 11 Key Remapper - settings")) == SettingsText(d)
+    , "settings.example.ini = what the app writes with the defaults")
 
 ; ---- 2. Labels ----
 Eq(FieldText(0xFF, 0x175, ["RCtrl"]), "Right Ctrl + NitroSense key · VK FF SC 175", "field text")
