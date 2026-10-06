@@ -15,7 +15,8 @@ uses [Semantic Versioning](https://semver.org/).
 - README reorganized: a short *Get started*, collapsible sections (features,
   updating, uninstalling, FAQ, help), more space between points, and *Feedback*
   and *Contributing* together. The settings table is gone: the file itself
-  explains each option now.
+  explains each option now. A GIF of the notification at the top; the settings
+  window screenshot moved into *Features*.
 
 ## [0.5.1] - 2026-10-05
 

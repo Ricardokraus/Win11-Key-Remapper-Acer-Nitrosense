@@ -26,15 +26,8 @@ On Acer Nitro laptops the **NitroSense key** sits right next to Backspace and
 Num Lock. One slip and the NitroSense app pops up. **Windows 11 Key Remapper**
 is a tiny tray app that gives that key a better job — or any other key you pick.
 
-<!-- Demo GIF: record with ScreenToGif, save as assets/demo.gif, then use it in
-     place of the screenshot below.
-<p align="center"><img src="assets/demo.gif" alt="The app's notifications" width="760"></p>
--->
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/screenshot-dark.png">
-    <img src="assets/screenshot-light.png" alt="The settings window, Keys section: the key to remap, what it does and the shortcut that opens NitroSense" width="760">
-  </picture>
+  <img src="assets/KeyRemapper.gif" alt="The app's notification sliding in at the top of the screen: Key Remapper is active, NitroSense key → Num Lock">
 </p>
 
 ---
@@ -101,6 +94,13 @@ shows them all with their defaults.
 - **Light**: no admin rights, no driver, no service, no CPU use while idle.
 
 - **Free and open source** (MIT).
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/screenshot-dark.png">
+    <img src="assets/screenshot-light.png" alt="The settings window, Keys section: the key to remap, what it does and the shortcut that opens NitroSense" width="760">
+  </picture>
+</p>
 
 </details>
 
