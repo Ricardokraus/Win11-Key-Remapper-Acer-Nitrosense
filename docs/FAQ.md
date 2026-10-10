@@ -35,8 +35,12 @@ Not for now. An exe made from an AutoHotkey script isn't code-signed, and
 Windows 11's *Smart App Control* blocks unsigned apps it doesn't know, with no
 *Run anyway* button (turning it off affects the whole PC, and often can't be
 undone without reinstalling Windows). AutoHotkey itself is signed, so the script
-runs everywhere, and you can read exactly what it does. A signed exe that installs
-and updates itself is planned.
+runs everywhere, and you can read exactly what it does.
+
+A standalone installer is on the way: a signed exe that doesn't need AutoHotkey,
+installs with a double-click and updates itself. It needs a code-signing
+certificate first (free programs for open-source projects exist, but they take
+some steps).
 
 <a name="antivirus"></a>
 ### My antivirus warns about it

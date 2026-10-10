@@ -38,7 +38,12 @@ is a tiny tray app that gives that key a better job — or any other key you pic
 
 The app is an [AutoHotkey v2](https://www.autohotkey.com/) script. AutoHotkey is
 free, open source and signed, so it also runs with Windows 11's *Smart App
-Control* on. (There's no exe for now: [why?](docs/FAQ.md#why-no-exe))
+Control* on.
+
+> [!NOTE]
+> A standalone installer that doesn't need AutoHotkey is on the way. It isn't
+> available yet because Windows blocks unsigned apps like it, and signing it
+> takes some extra steps. [More details](docs/FAQ.md#why-no-exe)
 
 1. Install [AutoHotkey v2](https://www.autohotkey.com/) (*Download v2.0* → run
    the installer, default options).
