@@ -472,7 +472,7 @@ for item in UI.items
 for item in UI.items
     nEdits += item.ctl.Type = "Edit"
 Eq(labels, "Tell,Repo,Sugg,Freq,Ask ,", "gui: About links in two groups")
-Check(!nEdits && LINKS[2][2][1][2] = "#faq", "gui: FAQ on GitHub, no text box")
+Check(!nEdits && LINKS[2][2][1][2] = "/blob/main/docs/FAQ.md", "gui: FAQ on GitHub, no text box")
 FlipSwitch("remapping")
 Check(UI.anims.Has(UI.tg["remapping"]) || !AnimationsOn() || !UI.tg["remapping"].Visible, "gui: the switch slides")
 FlipSwitch("remapping")

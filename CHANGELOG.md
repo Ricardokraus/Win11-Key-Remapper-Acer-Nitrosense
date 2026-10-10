@@ -17,6 +17,10 @@ uses [Semantic Versioning](https://semver.org/).
   and *Contributing* together. The settings table is gone: the file itself
   explains each option now. A GIF of the notification at the top; the settings
   window screenshot moved into *Features*.
+- The FAQ, the tested models and the help steps have pages of their own
+  (`docs/FAQ.md`, `docs/TESTED-MODELS.md`, `SUPPORT.md`), linked from a new
+  *More* section in the README. The app's *About* → *Frequently asked questions*
+  opens the new FAQ page.
 
 ## [0.5.1] - 2026-10-05
 

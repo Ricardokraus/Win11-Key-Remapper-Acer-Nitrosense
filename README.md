@@ -18,8 +18,9 @@
 <p align="center">
   <a href="#installation"><b>Get started</b></a> ·
   <a href="#features"><b>Features</b></a> ·
-  <a href="#faq"><b>FAQ</b></a> ·
-  <a href="#help-and-contributing"><b>Help and contributing</b></a>
+  <a href="docs/FAQ.md"><b>FAQ</b></a> ·
+  <a href="SUPPORT.md"><b>Help and feedback</b></a> ·
+  <a href="#more"><b>More</b></a>
 </p>
 
 On Acer Nitro laptops the **NitroSense key** sits right next to Backspace and
@@ -37,7 +38,7 @@ is a tiny tray app that gives that key a better job — or any other key you pic
 
 The app is an [AutoHotkey v2](https://www.autohotkey.com/) script. AutoHotkey is
 free, open source and signed, so it also runs with Windows 11's *Smart App
-Control* on. (There's no exe for now: [why?](#why-no-exe))
+Control* on. (There's no exe for now: [why?](docs/FAQ.md#why-no-exe))
 
 1. Install [AutoHotkey v2](https://www.autohotkey.com/) (*Download v2.0* → run
    the installer, default options).
@@ -139,198 +140,19 @@ Windows' *Installed apps*.
 
 </details>
 
-<a name="faq"></a>
-## ❓ FAQ
+<a name="more"></a><a name="faq"></a><a name="help-and-contributing"></a>
+## 📚 More
 
-<a name="why-no-exe"></a>
-<details>
-<summary><b>Q: Why do I need AutoHotkey? Is there an exe?</b></summary>
-<br>
-
-**A:** Not for now. An exe made from an AutoHotkey script isn't code-signed, and
-Windows 11's *Smart App Control* blocks unsigned apps it doesn't know, with no
-*Run anyway* button (turning it off affects the whole PC, and often can't be
-undone without reinstalling Windows). AutoHotkey itself is signed, so the script
-runs everywhere, and you can read exactly what it does. A signed exe that installs
-and updates itself is planned.
-</details>
-
-<details>
-<summary><b>Q: My antivirus warns about it</b></summary>
-<br>
-
-**A:** This app installs a keyboard hook, which is also what keyloggers do, so a
-heuristic scanner may flag it. It's a false positive: the whole app is the
-readable script in `src\`, it never stores or sends your keys (see
-[SECURITY.md](SECURITY.md)), and every release has a `SHA256SUMS.txt` you can
-compare with `Get-FileHash` on the zip you downloaded.
-</details>
-
-<details>
-<summary><b>Q: It doesn't work while Task Manager is focused</b></summary>
-<br>
-
-**A:** Windows doesn't pass keystrokes to apps without admin rights while an app with
-admin rights (like Task Manager) is in the foreground. That's a Windows security
-rule (UIPI). This app deliberately runs without admin rights so it can start
-silently at logon. Click any normal window and it works again.
-</details>
-
-<details>
-<summary><b>Q: What does <i>Exact key match</i> do?</b></summary>
-<br>
-
-**A:** Some vendor keys share the same virtual-key code. On Acer laptops, turning Win
-Lock on and off (<kbd>Fn</kbd>+<kbd>Win</kbd>) sends the NitroSense key's code
-(`VK FF`) with other scan codes (`159` and `162`). With *Exact key match* on (the
-default), the scan code must match too, so only the NitroSense key (`175`) is
-remapped and Win Lock works as usual. The switch is in Settings → *Advanced*.
-</details>
-
-<details>
-<summary><b>Q: I hid the tray icon. How do I open the settings?</b></summary>
-<br>
-
-**A:** Open the app again (double-click `src\Win11KeyRemapper.ahk`). Instead of
-starting a second copy, the running one shows its settings window, where you can
-turn the icon back on.
-</details>
-
-<details>
-<summary><b>Q: Does it connect to the internet?</b></summary>
-<br>
-
-**A:** Only to check for updates: once a day it asks GitHub's API for the latest release
-(nothing about you or your keys is sent). Turn off *Check for updates
-automatically* in Settings → *Updates* to stop it; *Check now* still works on demand.
-It never downloads anything by itself: *Download* opens the release page in your
-browser.
-</details>
-
-<details>
-<summary><b>Q: The Acer Num Lock / Caps Lock pop-up still shows</b></summary>
-<br>
-
-**A:** That overlay comes from Acer Quick Access, which NitroSense needs. It's outside
-this app's control.
-</details>
-
-<details>
-<summary><b>Q: Does it work on other laptops or keyboards?</b></summary>
-<br>
-
-**A:** Yes, for any key that reaches Windows as a key press: open the settings, go to
-*Keys*, click *Change…* next to *Key* and press it. Keys handled entirely by the firmware (like
-<kbd>Fn</kbd> itself) never reach Windows and can't be remapped.
-</details>
-
-<details>
-<summary><b>Q: The notification stutters on my old or low-power PC</b></summary>
-<br>
-
-**A:** The frosted glass takes a capture of the screen behind the notification and
-blurs it, each time it appears. Turn off *Transparency effects* in Settings →
-*Notifications*: you get a solid card in the settings window's colors, with no
-capture at all. Or set *Show notifications* to *Only when the app starts* or
-*Never*.
-</details>
-
-<details>
-<summary><b>Q: Where are my settings? Can I edit them by hand?</b></summary>
-<br>
-
-**A:** In `src\settings.ini`, next to `Win11KeyRemapper.ahk` (or in
-`%APPDATA%\Win11KeyRemapper\settings.ini` when that folder isn't writable).
-Settings → *Advanced* → *Open folder* takes you there. Every option is explained
-inside the file. After editing it, restart the app (tray icon → *Restart*). The app
-writes the file again when you change something in the settings window, so your
-own comments in it are lost.
-</details>
-
-<details>
-<summary><b>Q: How does it work?</b></summary>
-<br>
-
-**A:**
-
-- The NitroSense key reports virtual-key code `0xFF` ("no mapping"), which
-  AutoHotkey hotkeys can't target reliably. The app installs its own low-level
-  keyboard hook (`WH_KEYBOARD_LL`) and matches each key by virtual-key code
-  **and** scan code (with the extended bit).
-
-- The matched key is swallowed, so neither Windows nor the vendor software sees
-  it — otherwise both would react and Num Lock would toggle twice.
-
-- Modifiers for the launcher shortcut are tracked by the hook itself.
-
-- The hook never does real work: actions go to a queue that runs right after,
-  because Windows silently removes hooks that respond too slowly. The hook is
-  also reinstalled after unlocking and after sleep.
-
-- Key-downs that arrive while the key is still held (auto-repeat) are passed on
-  as repeats of the target, except for Num, Caps and Scroll Lock, so holding the
-  key toggles them once.
-
-- The settings window is standard Win32 with custom-drawn cards, buttons,
-  keycaps, switches and sidebar, aware of each monitor's scale; the notification
-  is drawn once with GDI+ and then only moved and faded by the window manager, so
-  it costs next to nothing.
-
-More details in [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
-</details>
-
-## 💻 Tested models
-
-| Laptop | Windows | Codes shown in the settings window | Status |
-|---|---|---|---|
-| Acer Nitro V 16S AI (ANV16S-41) | 11 | NitroSense key `VK FF SC 175` · Win Lock on `FF 159` / off `FF 162` | ✅ Works |
-
-Tried it on another laptop? Please
-[tell us how it went](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/issues/new?template=works_on_my_laptop.yml),
-even if it didn't work — that's how this list grows.
+| Page | What you'll find |
+|---|---|
+| ❓ **[FAQ](docs/FAQ.md)** | Common questions: AutoHotkey, antivirus warnings, Task Manager, Win Lock, the settings file… |
+| 💻 **[Tested models](docs/TESTED-MODELS.md)** | Laptops it works on. Tried it on yours? Tell us, even if it didn't work! |
+| 💬 **[Help and feedback](SUPPORT.md)** | Report a bug, suggest an idea or ask a question, step by step. |
+| 🛠️ **[Contributing](CONTRIBUTING.md)** | Help with code or docs. |
+| 📜 **[Changelog](CHANGELOG.md)** | What changed in each version. |
+| 🔒 **[Security](SECURITY.md)** | What the app does with your keys, and how to report a security problem privately. |
 
 ---
-
-<a name="help-and-contributing"></a>
-## 💬 Help and contributing
-
-Bugs, ideas, questions and code all go through GitHub. The same links are in the
-app: settings window → *About*.
-
-<details>
-<summary><b>Report a bug, suggest an idea or ask a question</b></summary>
-<br>
-
-You need a free GitHub account.
-
-1. Open the [Issues tab](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/issues)
-   and search first: maybe someone already reported it. If so, add a 👍 or a
-   comment with your details.
-
-2. If not, click **New issue** and pick a form:
-
-   - 🐞 **Bug report** — something doesn't work as expected.
-   - 💡 **Feature request** — an idea or an improvement.
-   - 💻 **Works on my laptop** — tell us whether it works on your model (even if it doesn't!).
-   - ❓ **Question** — anything else.
-
-3. Fill in the form and click **Create**. GitHub emails you when someone answers.
-
-Found a security problem? Please report it privately instead — see
-[SECURITY.md](SECURITY.md).
-
-</details>
-
-<details>
-<summary><b>Contribute code or docs</b></summary>
-<br>
-
-Pull requests are welcome! [CONTRIBUTING.md](CONTRIBUTING.md) explains how to
-test a change (syntax check and logic tests, the same ones GitHub Actions runs),
-and [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) how the app works and the traps
-this project already fell into.
-
-</details>
 
 If the app helps you, a ⭐ helps others find it.
 

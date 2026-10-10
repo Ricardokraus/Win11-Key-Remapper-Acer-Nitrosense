@@ -71,7 +71,7 @@ PAGES := [["general", "General", 0xE713], ["keys", "Keys", 0xE765], ["notificati
 LINKS := [["Feedback", [["Tell us it works on your laptop", "/issues/new?template=works_on_my_laptop.yml", 0xE7F8]
                       , ["Report a bug", "/issues/new?template=bug_report.yml", 0xEBE8]
                       , ["Suggest a feature", "/issues/new?template=feature_request.yml", 0xEA80]]]
-        , ["Help", [["Frequently asked questions", "#faq", 0xE897]
+        , ["Help", [["Frequently asked questions", "/blob/main/docs/FAQ.md", 0xE897]
                   , ["Ask a question", "/issues/new?template=question.yml", 0xE8BD]]]]
 ; Titles of the "saved" notices for each switch
 SWITCH_LABELS := Map("remapping", "Remapping", "autostart", "Start with Windows", "trayIcon", "Tray icon"

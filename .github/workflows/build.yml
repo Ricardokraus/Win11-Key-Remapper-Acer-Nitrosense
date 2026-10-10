@@ -74,7 +74,9 @@ jobs:
           Copy-Item src\Win11KeyRemapper.ahk "$dir\src"
           Copy-Item src\lib\GlassToast.ahk "$dir\src\lib"
           Copy-Item assets\icon.ico "$dir\assets"
-          Copy-Item README.md, LICENSE, CHANGELOG.md, settings.example.ini $dir
+          Copy-Item README.md, LICENSE, CHANGELOG.md, settings.example.ini, SUPPORT.md, SECURITY.md $dir
+          New-Item -ItemType Directory -Force "$dir\docs" | Out-Null
+          Copy-Item docs\FAQ.md, docs\TESTED-MODELS.md "$dir\docs"     # linked from the README
           Compress-Archive "$dir\*" "dist\$name.zip" -Force
           $sums = "$((Get-FileHash "dist\$name.zip" -Algorithm SHA256).Hash.ToLower())  $name.zip"
           $sums | Set-Content dist\SHA256SUMS.txt -Encoding ascii

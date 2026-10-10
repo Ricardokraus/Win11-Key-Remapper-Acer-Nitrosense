@@ -15,6 +15,7 @@ tools/build.ps1              builds dist/Win11KeyRemapper.exe locally (not publi
 assets/                      icon.ico, banner.svg, social-preview.png, screenshot-*.png
 settings.example.ini         every setting with its default (a test checks it's what the app writes)
 .github/workflows/build.yml  syntax check, tests, zip of the script, release on tag v*
+docs/FAQ.md, docs/TESTED-MODELS.md, SUPPORT.md   pages linked from the README's "More"
 .github/ISSUE_TEMPLATE/      bug, "works on my laptop", feature, question
 .github/dependabot.yml       monthly PRs to update the GitHub Actions
 SECURITY.md, CONTRIBUTING.md, CHANGELOG.md
@@ -447,8 +448,9 @@ The tests cover the logic; this needs real keys:
    `CHANGELOG.md` replace "Unreleased" with the date.
 2. Commit, then tag and push: `git tag v0.5.1` and `git push origin v0.5.1`.
 3. The workflow refuses a tag that doesn't match the version, checks, tests,
-   zips `src\` + `assets\icon.ico` + README, LICENSE, CHANGELOG and
-   `settings.example.ini`, creates the release as a draft with the zip,
+   zips `src\` + `assets\icon.ico` + README, LICENSE, CHANGELOG,
+   `settings.example.ini` and the pages the README links to (SUPPORT, SECURITY,
+   `docs\FAQ.md`, `docs\TESTED-MODELS.md`), creates the release as a draft with the zip,
    `SHA256SUMS.txt` and short install notes, and publishes it. Doing it in that
    order also works with immutable releases.
 4. Running copies find the new version within a day (or with *Check now*) and

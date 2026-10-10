@@ -7,7 +7,7 @@ Thanks for helping! There are several ways to contribute:
   and pick the matching form.
 - **Tell us about your laptop**: the
   [Works on my laptop](https://github.com/Ricardokraus/Win11-Key-Remapper-Acer-Nitrosense/issues/new?template=works_on_my_laptop.yml)
-  form grows the tested models list in the README.
+  form grows the [tested models](docs/TESTED-MODELS.md) list.
 - **Improve the code or the docs** with a pull request (below).
 
 ## Pull requests
